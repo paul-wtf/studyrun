@@ -3,15 +3,7 @@
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import { euro } from '#lib/format.ts';
 
-  interface Period { total: number; by_feature: Record<string, number> }
-  interface Costs {
-    today: Period;
-    month: Period;
-    cap_today: number;
-    remaining_today: number;
-    generation_budget_today: number;
-    generation_remaining_today: number;
-  }
+  import type { Costs, Period } from '#lib/api/models.ts';
 
   const FEATURES: [string, string][] = [
     ['generate', 'Erzeugung'],

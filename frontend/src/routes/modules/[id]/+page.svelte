@@ -5,10 +5,9 @@
   import ChapterList from '#lib/components/ChapterList.svelte';
   import UploadBooklet from '#lib/components/UploadBooklet.svelte';
 
-  interface Booklet { id: number; filename: string; page_count: number; status: 'processing' | 'ready' | 'failed' }
-  interface Module { id: number; name: string; booklets: Booklet[] }
+  import type { Module } from '#lib/api/models.ts';
 
-  const STATUS = { processing: 'In Arbeit', ready: 'Fertig', failed: 'Fehlgeschlagen' };
+  const STATUS: Record<string, string> = { processing: 'In Arbeit', ready: 'Fertig', failed: 'Fehlgeschlagen' };
 
   const id = Number(page.params.id);
   let module = $state<Module | null>(null);
@@ -46,7 +45,7 @@
     {/each}
     <UploadBooklet moduleId={id} onuploaded={uploaded} />
     {#key generation}
-      <ChapterList moduleId={id} />
+      <ChapterList moduleId={id} onchange={load} />
     {/key}
   {/if}
 </div>

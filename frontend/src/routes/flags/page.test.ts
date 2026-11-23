@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import Page from './+page.svelte';
 import { mockApi } from '#lib/test/mockApi.ts';
@@ -26,6 +26,7 @@ describe('flags page', () => {
     expect(screen.getByText(/Zelle/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Im Skript/ })).toHaveAttribute('href', FLAG.source);
     await userEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Löschen bestätigen' })).getByRole('button', { name: 'Löschen' }));
     expect(await screen.findByText('Keine gemeldeten Fragen.')).toBeInTheDocument();
   });
 });

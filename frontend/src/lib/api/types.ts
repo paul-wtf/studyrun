@@ -1,4 +1,6 @@
-export type ItemKind = 'mc' | 'true_false' | 'cloze' | 'free';
+import type { ItemKind } from './models';
+
+export type { ItemKind };
 
 export interface IntroEntry {
   n: number;

@@ -2,19 +2,9 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import FlagEditor from '#lib/components/FlagEditor.svelte';
-  import type { ItemKind } from '#lib/api/types.ts';
+  import type { Flag, FlagReason } from '#lib/api/models.ts';
 
-  interface Flag {
-    id: number;
-    kind: ItemKind;
-    payload: Record<string, unknown>;
-    source_page: number;
-    reason: 'wrong' | 'not_in_course' | 'unclear' | null;
-    chapter_title: string;
-    source: string;
-  }
-
-  const REASON = { wrong: 'Falsch', not_in_course: 'Nicht im Kurs', unclear: 'Unklar' };
+  const REASON: Record<FlagReason, string> = { wrong: 'Falsch', not_in_course: 'Nicht im Kurs', unclear: 'Unklar' };
 
   let flags = $state<Flag[] | null>(null);
   let error = $state('');

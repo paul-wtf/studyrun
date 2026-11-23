@@ -3,8 +3,7 @@
   import { api, SessionExpiredError } from '#lib/api/client.ts';
   import { euro } from '#lib/format.ts';
 
-  interface Costs { today: { total: number }; cap_today: number }
-  interface Module { booklets: { chapters: { ready: number } }[] }
+  import type { Costs, Module } from '#lib/api/models.ts';
 
   let costs = $state<Costs | null>(null);
   let ready = $state<boolean | null>(null);

@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import FlagEditor from './FlagEditor.svelte';
+import type { Flag } from '#lib/api/models.ts';
 import { mockApi } from '#lib/test/mockApi.ts';
 
-const MC = {
-  id: 5, kind: 'mc' as const, source_page: 3, reason: 'wrong', chapter_title: 'Zelle', source: '/api/booklets/1/pdf#page=3',
+const MC: Flag = {
+  id: 5, kind: 'mc', source_page: 3, reason: 'wrong', chapter_title: 'Zelle', source: '/api/booklets/1/pdf#page=3',
   payload: { prompt: 'Was ist der Kern?', options: ['A', 'B', 'C'], answer_index: 1, explanation: 'Weil.' }
 };
 
@@ -54,7 +55,7 @@ describe('FlagEditor', () => {
   it('renders fields for the other kinds and sends a boolean for true_false', async () => {
     const { calls } = mockApi({ 'PUT /api/items/6': { status: 'active' } });
     render(FlagEditor, {
-      item: { ...MC, id: 6, kind: 'true_false' as const, payload: { statement: 'S', correct: true, explanation: 'E' } },
+      item: { ...MC, id: 6, kind: 'true_false', payload: { statement: 'S', correct: true, explanation: 'E' } },
       onchanged: vi.fn()
     });
     await userEvent.selectOptions(screen.getByLabelText('Richtige Antwort'), 'Falsch');
@@ -65,12 +66,24 @@ describe('FlagEditor', () => {
     });
   });
 
-  it('deletes the item', async () => {
+  it('asks before deleting and only then sends DELETE', async () => {
     const onchanged = vi.fn();
     const { calls } = mockApi({ 'DELETE /api/items/5': { status: 'deleted' } });
     render(FlagEditor, { item: MC, onchanged });
     await userEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    expect(screen.getByText('Wirklich löschen?')).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Löschen' }));
     await vi.waitFor(() => expect(onchanged).toHaveBeenCalled());
     expect(calls[0]).toMatchObject({ method: 'DELETE', path: '/api/items/5' });
+  });
+
+  it('cancels the delete confirmation without a request', async () => {
+    const { calls } = mockApi({});
+    render(FlagEditor, { item: MC, onchanged: vi.fn() });
+    await userEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
+    expect(screen.queryByText('Wirklich löschen?')).not.toBeInTheDocument();
+    expect(calls).toHaveLength(0);
   });
 });

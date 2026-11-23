@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
 
-  interface Module { id: number; name: string; position: number; booklets: unknown[] }
+  import type { Module } from '#lib/api/models.ts';
 
   let modules = $state<Module[]>([]);
   let name = $state('');

@@ -1,14 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
-  import type { ItemKind } from '#lib/api/types.ts';
-
-  interface Flag {
-    id: number;
-    kind: ItemKind;
-    payload: Record<string, unknown>;
-    source_page: number;
-  }
+  import type { Flag, ItemKind } from '#lib/api/models.ts';
 
   type Field = { key: string; label: string; type: 'text' | 'area' | 'lines' | 'int' | 'bool' };
 
@@ -52,6 +45,7 @@
   let page = $state(String(start.source_page));
   let busy = $state(false);
   let error = $state('');
+  let confirming = $state(false);
 
   function build(): Record<string, unknown> {
     const out: Record<string, unknown> = {};
@@ -107,8 +101,19 @@
   {#if error}<p class="error">{error}</p>{/if}
   <div class="row">
     <button type="submit" class="primary" disabled={busy}>Speichern</button>
-    <button type="button" disabled={busy} onclick={remove}>Löschen</button>
+    {#if !confirming}
+      <button type="button" disabled={busy} onclick={() => (confirming = true)}>Löschen</button>
+    {/if}
   </div>
+  {#if confirming}
+    <div class="stack" role="group" aria-label="Löschen bestätigen">
+      <p>Wirklich löschen?</p>
+      <div class="row">
+        <button type="button" class="danger" disabled={busy} onclick={remove}>Löschen</button>
+        <button type="button" disabled={busy} onclick={() => (confirming = false)}>Abbrechen</button>
+      </div>
+    </div>
+  {/if}
 </form>
 
 <style>
@@ -119,5 +124,6 @@
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
   }
   textarea { min-height: 5rem; }
+  .danger { color: var(--bad); border-color: var(--bad); }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>

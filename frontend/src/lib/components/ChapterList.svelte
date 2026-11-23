@@ -2,16 +2,7 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
 
-  interface Chapter {
-    id: number;
-    title: string;
-    first_page: number;
-    last_page: number;
-    status: 'pending' | 'generating' | 'verifying' | 'ready' | 'failed';
-    error: string | null;
-    waiting_reason: string | null;
-    active_items: number;
-  }
+  import type { Chapter } from '#lib/api/models.ts';
 
   const POLL_MS = 30_000;
   const LABEL = {
@@ -22,7 +13,7 @@
     failed: 'Fehlgeschlagen'
   };
 
-  let { moduleId }: { moduleId: number } = $props();
+  let { moduleId, onchange }: { moduleId: number; onchange?: () => void } = $props();
 
   let chapters = $state<Chapter[]>([]);
   let loaded = $state(false);
@@ -32,10 +23,15 @@
 
   const working = $derived(chapters.some((c) => ['pending', 'generating', 'verifying'].includes(c.status)));
 
+  const signature = (list: Chapter[]) => list.map((c) => `${c.id}:${c.status}`).join(',');
+
   async function load() {
     clearTimeout(timer);
     try {
-      chapters = await api.get<Chapter[]>(`/api/modules/${moduleId}/chapters`);
+      const next = await api.get<Chapter[]>(`/api/modules/${moduleId}/chapters`);
+      const changed = loaded && signature(next) !== signature(chapters);
+      chapters = next;
+      if (changed) onchange?.();
       error = '';
     } catch (e) {
       if (e instanceof SessionExpiredError) return;
