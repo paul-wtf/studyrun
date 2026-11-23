@@ -6,7 +6,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testdb import derive_test_url, ensure_database
 
-from studyrun.db import Base
+from studyrun.models.db import Base
 
 TEST_DB_URL = derive_test_url(
     os.environ.get(
@@ -29,7 +29,7 @@ async def test_database() -> str:
 
 @pytest_asyncio.fixture(scope="session")
 async def _engine(test_database):
-    engine = create_async_engine(test_database, future=True)
+    engine = create_async_engine(test_database)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)

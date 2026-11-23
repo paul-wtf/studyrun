@@ -15,8 +15,11 @@ def derive_test_url(url: str) -> str:
 async def ensure_database(url: str) -> None:
     parsed = make_url(url)
     conn = await asyncpg.connect(
-        host=parsed.host, port=parsed.port, user=parsed.username,
-        password=parsed.password, database="postgres",
+        host=parsed.host,
+        port=parsed.port,
+        user=parsed.username,
+        password=parsed.password,
+        database="postgres",
     )
     try:
         if await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", parsed.database):
