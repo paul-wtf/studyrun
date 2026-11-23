@@ -75,7 +75,7 @@
         <strong>{c.title}</strong>
         <span class="status {c.status}">{LABEL[c.status]}</span>
       </div>
-      <p class="muted">Seiten {c.first_page}–{c.last_page}{c.status === 'ready' ? `, ${c.active_items} Aufgaben` : ''}</p>
+      <p class="muted">Seiten {c.first_page}–{c.last_page}{c.status === 'ready' ? `, ${c.active_items} Fragen` : ''}</p>
       {#if c.waiting_reason}<p class="muted">{c.waiting_reason}</p>{/if}
       {#if c.status === 'failed' && c.error}<p class="error">{c.error}</p>{/if}
       {#if c.status === 'failed' || c.status === 'pending'}

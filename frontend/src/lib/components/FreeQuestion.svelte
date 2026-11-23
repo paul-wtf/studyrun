@@ -94,7 +94,7 @@
       <p class="muted">{unavailable.reason}</p>
       <h2>Musterantwort</h2>
       <p>{unavailable.model_answer}</p>
-      <a href={entry.item.source} target="_blank" rel="noopener">Im Skript nachlesen</a>
+      <a href={entry.item.source} target="_blank" rel="noopener">Im Heft nachlesen</a>
       <div class="pair">
         <button disabled={busy} onclick={() => selfRate('again')}>Wusste ich nicht</button>
         <button class="primary" disabled={busy} onclick={() => selfRate('good')}>Wusste ich</button>

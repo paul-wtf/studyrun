@@ -35,7 +35,7 @@
   {#if ready === false && !resume}
     <div class="card stack">
       <h1>Noch nichts zu lernen</h1>
-      <p>Lade ein Skript hoch und lass Aufgaben erzeugen, dann kann es losgehen.</p>
+      <p>Lade ein Heft hoch und lass Fragen erzeugen, dann kann es losgehen.</p>
       <a class="btn primary block" href="/modules">Zu den Modulen</a>
     </div>
   {:else if ready !== null || resume || error}

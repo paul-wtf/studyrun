@@ -20,7 +20,7 @@ describe('McQuestion', () => {
     expect(calls[0].body).toEqual({ answer: { choice: 1 } });
     expect(await screen.findByText('Falsch')).toBeInTheDocument();
     expect(screen.getByText('Der Himmel.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Im Skript/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Im Heft/ })).toHaveAttribute(
       'href',
       '/api/booklets/3/pdf#page=12'
     );

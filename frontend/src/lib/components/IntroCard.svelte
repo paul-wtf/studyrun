@@ -39,7 +39,7 @@
       {/each}
     </ul>
   {/if}
-  <a href={entry.chapter.source} target="_blank" rel="noopener">Im Skript nachlesen</a>
+  <a href={entry.chapter.source} target="_blank" rel="noopener">Im Heft nachlesen</a>
   {#if error}<p class="error">{error}</p>{/if}
   <button class="primary block" disabled={busy} onclick={ack}>Weiter</button>
 </div>

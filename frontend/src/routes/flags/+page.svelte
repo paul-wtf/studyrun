@@ -29,7 +29,7 @@
     <div class="card stack">
       <p class="muted">
         <strong>{f.reason ? REASON[f.reason] : 'Gemeldet'}</strong> · {f.chapter_title} · Seite {f.source_page}
-        · <a href={f.source} target="_blank" rel="noopener">Im Skript nachlesen</a>
+        · <a href={f.source} target="_blank" rel="noopener">Im Heft nachlesen</a>
       </p>
       <FlagEditor item={f} onchanged={load} />
     </div>

@@ -51,7 +51,7 @@
       <p>{result.model_answer}</p>
     </details>
   {/if}
-  <a href={source} target="_blank" rel="noopener">Im Skript nachlesen</a>
+  <a href={source} target="_blank" rel="noopener">Im Heft nachlesen</a>
   {#if error}<p class="error">{error}</p>{/if}
   <div class="actions">
     {#if flagged}

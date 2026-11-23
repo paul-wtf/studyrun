@@ -36,7 +36,7 @@
 </script>
 
 <form class="card stack" onsubmit={(e) => { e.preventDefault(); void send(false); }}>
-  <h2>Skript hochladen</h2>
+  <h2>Heft hochladen</h2>
   <label>
     PDF-Datei
     <input

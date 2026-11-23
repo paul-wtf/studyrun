@@ -39,17 +39,39 @@ describe('FlagEditor', () => {
     });
   });
 
+  it('picks the right option by its number counted from 1', async () => {
+    const { calls } = mockApi({ 'PUT /api/items/5': { status: 'active' } });
+    render(FlagEditor, { item: MC, onchanged: vi.fn() });
+    const choice = screen.getByLabelText('Richtige Option') as HTMLSelectElement;
+    expect(choice.value).toBe('2');
+    expect([...choice.options].map((o) => o.text)).toEqual(['1: A', '2: B', '3: C']);
+    await userEvent.selectOptions(choice, '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect((calls[0].body as { payload: { answer_index: number } }).payload.answer_index).toBe(2);
+  });
+
+  it('explains the gap marker for cloze items', () => {
+    const cloze: Flag = {
+      ...MC,
+      kind: 'cloze',
+      payload: { text: 'Der ___ steuert.', answers: ['Kern'], explanation: 'Weil.' }
+    };
+    render(FlagEditor, { item: cloze, onchanged: vi.fn() });
+    expect(screen.getByLabelText('Text mit Lücke (___ markiert die Lücke)')).toHaveValue('Der ___ steuert.');
+  });
+
   it('shows the German 422 message', async () => {
     mockApi({
       'PUT /api/items/5': () =>
-        new Response(JSON.stringify({ detail: 'Ungültige Aufgabe: Quellseite' }), {
+        new Response(JSON.stringify({ detail: 'Ungültige Frage: Quellseite' }), {
           status: 422,
           headers: { 'content-type': 'application/json' }
         })
     });
     render(FlagEditor, { item: MC, onchanged: vi.fn() });
     await userEvent.click(screen.getByRole('button', { name: 'Speichern' }));
-    expect(await screen.findByText('Ungültige Aufgabe: Quellseite')).toBeInTheDocument();
+    expect(await screen.findByText('Ungültige Frage: Quellseite')).toBeInTheDocument();
   });
 
   it('renders fields for the other kinds and sends a boolean for true_false', async () => {

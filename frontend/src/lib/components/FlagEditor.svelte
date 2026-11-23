@@ -3,13 +3,13 @@
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import type { Flag, ItemKind } from '#lib/api/models.ts';
 
-  type Field = { key: string; label: string; type: 'text' | 'area' | 'lines' | 'int' | 'bool' };
+  type Field = { key: string; label: string; type: 'text' | 'area' | 'lines' | 'choice' | 'bool' };
 
   const FIELDS: Record<ItemKind, Field[]> = {
     mc: [
       { key: 'prompt', label: 'Frage', type: 'area' },
       { key: 'options', label: 'Antwortoptionen (eine pro Zeile)', type: 'lines' },
-      { key: 'answer_index', label: 'Nummer der richtigen Option (ab 0)', type: 'int' },
+      { key: 'answer_index', label: 'Richtige Option', type: 'choice' },
       { key: 'explanation', label: 'Erklärung', type: 'area' }
     ],
     true_false: [
@@ -18,7 +18,7 @@
       { key: 'explanation', label: 'Erklärung', type: 'area' }
     ],
     cloze: [
-      { key: 'text', label: 'Text mit Lücken', type: 'area' },
+      { key: 'text', label: 'Text mit Lücke (___ markiert die Lücke)', type: 'area' },
       { key: 'answers', label: 'Lösungen (eine pro Zeile)', type: 'lines' },
       { key: 'explanation', label: 'Erklärung', type: 'area' }
     ],
@@ -26,7 +26,7 @@
       { key: 'prompt', label: 'Frage', type: 'area' },
       { key: 'model_answer', label: 'Musterantwort', type: 'area' },
       { key: 'rubric', label: 'Bewertungskriterien (eine pro Zeile)', type: 'lines' },
-      { key: 'source_excerpt', label: 'Auszug aus dem Skript', type: 'area' }
+      { key: 'source_excerpt', label: 'Auszug aus dem Heft', type: 'area' }
     ]
   };
 
@@ -39,7 +39,10 @@
       ? ((start.payload[f.key] as string[] | undefined) ?? []).join('\n')
       : f.type === 'bool'
         ? String(start.payload[f.key] ?? true)
-        : String(start.payload[f.key] ?? '');
+        : f.type === 'choice'
+          ? String(Number(start.payload[f.key] ?? 0) + 1)
+          : String(start.payload[f.key] ?? '');
+  const lines = (v: string) => v.split('\n').map((l) => l.trim()).filter(Boolean);
 
   let values = $state<Record<string, string>>(Object.fromEntries(fields.map((f) => [f.key, initial(f)])));
   let page = $state(String(start.source_page));
@@ -52,8 +55,8 @@
     for (const f of fields) {
       const v = values[f.key];
       out[f.key] =
-        f.type === 'lines' ? v.split('\n').map((l) => l.trim()).filter(Boolean)
-        : f.type === 'int' ? Number(v)
+        f.type === 'lines' ? lines(v)
+        : f.type === 'choice' ? Number(v) - 1
         : f.type === 'bool' ? v === 'true'
         : v;
     }
@@ -87,8 +90,12 @@
           <option value="true">Wahr</option>
           <option value="false">Falsch</option>
         </select>
-      {:else if f.type === 'int'}
-        <input type="text" inputmode="numeric" bind:value={values[f.key]} />
+      {:else if f.type === 'choice'}
+        <select bind:value={values[f.key]}>
+          {#each lines(values.options ?? '') as option, i (i)}
+            <option value={String(i + 1)}>{i + 1}: {option}</option>
+          {/each}
+        </select>
       {:else}
         <textarea bind:value={values[f.key]}></textarea>
       {/if}
