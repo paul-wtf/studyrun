@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
+  import { api, ApiError, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import type { Run, RunSummaryData } from '#lib/api/models.ts';
   import { isCloze, isFree, isMc, isTrueFalse } from '#lib/api/entries.ts';
   import IntroCard from '#lib/components/IntroCard.svelte';
@@ -35,7 +35,7 @@
     if (!run.entries.some((e) => !e.done)) void finish();
   }
 
-  async function reload() {
+  async function reload(cause?: unknown) {
     try {
       const fresh = await api.post<Run>('/api/runs');
       if (fresh.entries.length === 0) {
@@ -44,7 +44,10 @@
         return;
       }
       run = fresh;
-      note = 'Diese Aufgabe wurde schon auf einem anderen Gerät beantwortet.';
+      note =
+        cause instanceof ApiError && cause.status === 409
+          ? 'Diese Frage wurde schon auf einem anderen Gerät beantwortet.'
+          : 'Der Durchlauf wurde neu geladen.';
       if (!current) await finish();
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = errorText(e);

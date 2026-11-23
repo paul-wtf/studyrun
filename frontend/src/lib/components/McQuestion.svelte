@@ -8,7 +8,7 @@
     entry,
     onDone,
     onStale
-  }: { runId: number; entry: McEntry; onDone: () => void; onStale?: () => void } = $props();
+  }: { runId: number; entry: McEntry; onDone: () => void; onStale?: (error: unknown) => void } = $props();
   let result = $state<ObjectiveResult | null>(null);
   let chosen = $state<number | null>(null);
   let busy = $state(false);
@@ -25,7 +25,7 @@
     } catch (e) {
       if (isStale(e) && onStale) {
         busy = false;
-        return onStale();
+        return onStale(e);
       }
       error = errorText(e);
       busy = false;

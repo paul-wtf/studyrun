@@ -1,6 +1,6 @@
 import type { ClozeEntry, FreeEntry, McEntry, TrueFalseEntry } from '#lib/api/models.ts';
 
-const base = { n: 0, type: 'item' as const, done: false, grading_unavailable: false };
+const base = { n: 0, type: 'item' as const, done: false, grading_unavailable: false, model_answer: null };
 const source = '/api/booklets/3/pdf#page=12';
 
 export function mcEntry(extra: Partial<McEntry['item']> = {}): McEntry {

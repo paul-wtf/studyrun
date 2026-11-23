@@ -8,7 +8,7 @@
     entry,
     onDone,
     onStale
-  }: { runId: number; entry: ClozeEntry; onDone: () => void; onStale?: () => void } = $props();
+  }: { runId: number; entry: ClozeEntry; onDone: () => void; onStale?: (error: unknown) => void } = $props();
   let text = $state('');
   let result = $state<ObjectiveResult | null>(null);
   let busy = $state(false);
@@ -26,7 +26,7 @@
     } catch (e) {
       if (isStale(e) && onStale) {
         busy = false;
-        return onStale();
+        return onStale(e);
       }
       error = errorText(e);
       busy = false;

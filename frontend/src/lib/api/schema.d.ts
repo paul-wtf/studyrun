@@ -571,6 +571,8 @@ export interface components {
             done: boolean;
             /** Grading Unavailable */
             grading_unavailable: boolean;
+            /** Model Answer */
+            model_answer: string | null;
             /** Item */
             item: components["schemas"]["McViewOut"] | components["schemas"]["TrueFalseViewOut"] | components["schemas"]["ClozeViewOut"] | components["schemas"]["FreeViewOut"];
         };
@@ -886,7 +888,9 @@ export interface operations {
     booklet_pdf_api_booklets__booklet_id__pdf_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
             path: {
                 booklet_id: number;
             };

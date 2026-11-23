@@ -84,6 +84,23 @@ describe('run page', () => {
     ]);
   });
 
+  it('reloads with a neutral note when the entry is gone', async () => {
+    const { fetchMock } = mockApi({
+      'POST /api/runs': { ...RUN, entries: [{ ...RUN.entries[0], done: true }, RUN.entries[1]] }
+    });
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify(RUN), { status: 200, headers: { 'content-type': 'application/json' } }));
+    fetchMock.mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ detail: 'Durchlauf nicht gefunden' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+    render(Page);
+    await userEvent.click(await screen.findByRole('button', { name: 'Weiter' }));
+    expect(await screen.findByText('Der Durchlauf wurde neu geladen.')).toBeInTheDocument();
+    expect(screen.queryByText(/anderen Gerät/)).not.toBeInTheDocument();
+  });
+
   it('is interactive again when the reloaded run starts at the same entry number', async () => {
     const other = {
       id: 2,

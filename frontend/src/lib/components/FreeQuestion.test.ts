@@ -49,4 +49,34 @@ describe('FreeQuestion', () => {
     });
     expect(onDone).toHaveBeenCalled();
   });
+
+  it('goes straight to self-rating when grading already failed for this entry', async () => {
+    const { calls } = mockApi({ 'POST /api/runs/1/entries/0/self-rate': { done: true } });
+    const onDone = vi.fn();
+    const failed = { ...entry, grading_unavailable: true, model_answer: 'Die Zelle hat einen Kern.' };
+    render(FreeQuestion, { props: { runId: 1, entry: failed, onDone } });
+    expect(screen.getByText('Die Zelle hat einen Kern.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Antworten' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    await userEvent.click(screen.getByRole('button', { name: 'Wusste ich' }));
+    expect(calls).toEqual([
+      { method: 'POST', path: '/api/runs/1/entries/0/self-rate', body: { rating: 'good' } }
+    ]);
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('sends a self-rating only once while it is on its way', async () => {
+    let release: (r: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((resolve) => (release = resolve))
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const failed = { ...entry, grading_unavailable: true, model_answer: 'Muster' };
+    render(FreeQuestion, { props: { runId: 1, entry: failed, onDone: vi.fn() } });
+    await userEvent.click(screen.getByRole('button', { name: 'Wusste ich' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Wusste ich nicht' }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release(new Response('{"done":true}', { headers: { 'content-type': 'application/json' } }));
+  });
 });
