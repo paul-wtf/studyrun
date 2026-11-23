@@ -71,6 +71,11 @@ async def test_fix_rejects_invalid_payload(api, db_session):
     for payload in bad:
         resp = await client.put(f"/api/items/{item.id}", json={"payload": payload})
         assert resp.status_code == 422, payload
+        assert resp.json()["detail"].startswith("Ungültige Frage: "), payload
+    missing = await client.put(f"/api/items/{item.id}", json={"payload": {"prompt": "Q?"}})
+    assert missing.json()["detail"] == (
+        "Ungültige Frage: Das Feld »options« fehlt oder ist ungültig."
+    )
     resp = await client.put(f"/api/items/{item.id}", json={"payload": MC, "source_page": 99})
     assert resp.status_code == 422
     await db_session.refresh(item)

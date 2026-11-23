@@ -81,6 +81,17 @@ async def test_upload_rejects_too_large(api):
     assert resp.status_code == 413
 
 
+async def test_too_large_names_the_limit(api):
+    client, app = api
+    settings = get_settings().model_copy(update={"upload_max_bytes": 2 * 1024 * 1024})
+    app.dependency_overrides[get_settings] = lambda: settings
+    module_id = await _module(client)
+    big = b"%PDF-1.7\n" + b"0" * (3 * 1024 * 1024)
+    resp = await client.post(f"/api/modules/{module_id}/booklets", files=_files(big))
+    assert resp.status_code == 413
+    assert resp.json()["detail"] == "Die Datei ist zu groß (höchstens 2 MB)."
+
+
 async def test_upload_rejects_non_pdf_with_german_message(api):
     client, _ = api
     module_id = await _module(client)

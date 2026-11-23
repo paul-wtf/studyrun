@@ -29,7 +29,7 @@ class FlaggedOut(BaseModel):
 async def flag_item(item_id: int, body: FlagIn, session: Session) -> FlaggedOut:
     item = await session.get(Item, item_id)
     if item is None:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, "Frage nicht gefunden")
     item.status = ItemStatus.flagged
     item.flag_reason = body.reason
     await session.flush()
@@ -73,11 +73,19 @@ async def list_flags(session: Session) -> list[FlagOut]:
     ]
 
 
+def _invalid(error: ValidationError, kind: ItemKind) -> str:
+    fields = [part for part in error.errors()[0]["loc"] if isinstance(part, str)]
+    fields = [part for part in fields if part != kind.value]
+    if not fields:
+        return "Ungültige Frage."
+    return f"Ungültige Frage: Das Feld »{fields[0]}« fehlt oder ist ungültig."
+
+
 @router.put("/items/{item_id}")
 async def fix_item(item_id: int, body: ItemFix, session: Session) -> dict[str, str]:
     item = await session.get(Item, item_id)
     if item is None:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, "Frage nicht gefunden")
     if item.status != ItemStatus.flagged:
         raise HTTPException(409, "Nur gemeldete Fragen können bearbeitet werden.")
     chapter = await session.get(Chapter, item.chapter_id)
@@ -89,9 +97,9 @@ async def fix_item(item_id: int, body: ItemFix, session: Session) -> dict[str, s
     try:
         parsed = _ITEM.validate_python({**fields, "kind": item.kind.value, "source_page": page})
     except ValidationError as exc:
-        raise HTTPException(422, "Ungültige Aufgabe: " + str(exc.errors()[0]["msg"])) from exc
+        raise HTTPException(422, _invalid(exc, item.kind)) from exc
     if not validate_items([parsed], chapter.first_page, chapter.last_page):
-        raise HTTPException(422, "Ungültige Aufgabe: Inhalt oder Quellseite passt nicht.")
+        raise HTTPException(422, "Ungültige Frage: Inhalt oder Quellseite passt nicht.")
     item.payload = parsed.model_dump(exclude={"kind", "source_page"})
     item.source_page = page
     item.status = ItemStatus.active
@@ -104,7 +112,7 @@ async def fix_item(item_id: int, body: ItemFix, session: Session) -> dict[str, s
 async def delete_item(item_id: int, session: Session) -> dict[str, str]:
     item = await session.get(Item, item_id)
     if item is None:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, "Frage nicht gefunden")
     if item.status != ItemStatus.flagged:
         raise HTTPException(409, "Nur gemeldete Fragen können gelöscht werden.")
     item.status = ItemStatus.deleted

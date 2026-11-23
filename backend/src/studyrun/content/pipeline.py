@@ -23,6 +23,7 @@ WAITING_FOR_BUDGET = "Tagesbudget für die Erzeugung erreicht"
 NO_VALID_ITEMS = "Keine gültigen Fragen erzeugt"
 NO_ITEMS_PASSED = "Keine Fragen haben die Prüfung bestanden"
 RETRYING_VERIFICATION = "Prüfung wird erneut versucht"
+UNEXPECTED_ERROR = "Unerwarteter Fehler bei der Verarbeitung."
 
 _ITEMS: TypeAdapter[list[ItemUnion]] = TypeAdapter(list[ItemUnion])
 
@@ -239,5 +240,5 @@ async def advance_chapter(
     except Exception as error:
         log.exception("chapter %s failed while %s", chapter_id, status.value)
         await session.refresh(chapter)
-        _fail(chapter, str(error) or type(error).__name__)
+        _fail(chapter, error.reason if isinstance(error, LLMUnavailable) else UNEXPECTED_ERROR)
     await session.flush()

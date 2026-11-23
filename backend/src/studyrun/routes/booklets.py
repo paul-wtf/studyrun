@@ -41,7 +41,8 @@ async def _read_limited(file: UploadFile, limit: int) -> bytes:
     while chunk := await file.read(CHUNK_BYTES):
         total += len(chunk)
         if total > limit:
-            raise HTTPException(413, "Die Datei ist zu gross.")
+            megabytes = f"{limit / (1024 * 1024):g}".replace(".", ",")
+            raise HTTPException(413, f"Die Datei ist zu groß (höchstens {megabytes} MB).")
         chunks.append(chunk)
     return b"".join(chunks)
 

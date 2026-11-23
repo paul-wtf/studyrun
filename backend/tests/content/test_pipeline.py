@@ -307,15 +307,16 @@ async def test_batch_error_fails_with_message(db_session):
     assert chapter.batch_id is None
 
 
-async def test_unexpected_error_fails_with_message(db_session):
+async def test_unexpected_error_fails_with_a_german_summary(db_session, caplog):
     chapter = await seed_pending(db_session)
     llm = FakeBatchLLM()
     llm.queue(f"gen-{chapter.id}", content([mc()]))
-    llm.queue(f"ver-{chapter.id}", RuntimeError("Verbindung verloren"))
+    llm.queue(f"ver-{chapter.id}", RuntimeError("connection reset by peer"))
     for _ in range(3):
         chapter = await _advance(db_session, llm, chapter.id)
     assert chapter.status == ChapterStatus.failed
-    assert chapter.error == "Verbindung verloren"
+    assert chapter.error == "Unerwarteter Fehler bei der Verarbeitung."
+    assert "connection reset by peer" in caplog.text
     assert chapter.batch_id is None
 
 

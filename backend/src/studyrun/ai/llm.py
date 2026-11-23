@@ -122,7 +122,12 @@ def _parse[M: BaseModel](schema: type[M], message: Any) -> M:
 
 
 def _api_error(error: anthropic.AnthropicError) -> LLMUnavailable:
-    return LLMUnavailable(f"Fehler der Claude-API: {error}")
+    log.warning("Claude API error: %s", error)
+    if isinstance(error, anthropic.APIStatusError):
+        return LLMUnavailable(f"Die Claude-API hat mit Fehler {error.status_code} geantwortet.")
+    if isinstance(error, anthropic.APIConnectionError):
+        return LLMUnavailable("Die Claude-API ist nicht erreichbar.")
+    return LLMUnavailable("Fehler bei der Anfrage an die Claude-API.")
 
 
 class AnthropicLLM:
@@ -251,7 +256,8 @@ class AnthropicLLM:
             raise LLMUnavailable(f"Der Batch enthält {len(results)} Ergebnisse statt einem.")
         result = results[0].result
         if result.type == "errored":
-            raise LLMUnavailable(f"Der Batch ist fehlgeschlagen: {result.error.error.message}")
+            log.warning("batch %s errored: %s", batch_id, result.error.error.message)
+            raise LLMUnavailable("Der Batch ist fehlgeschlagen.")
         if result.type == "expired":
             raise LLMUnavailable("Der Batch ist abgelaufen.")
         if result.type == "canceled":

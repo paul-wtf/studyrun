@@ -169,14 +169,14 @@ async def test_structured_records_each_fallback_attempt(db_session):
     ]
 
 
-async def test_structured_api_error_is_unavailable(db_session):
+async def test_structured_api_error_is_unavailable(db_session, caplog):
     api = Api(
         httpx2.Response(
             400,
             json={"type": "error", "error": {"type": "invalid_request_error", "message": "kaputt"}},
         )
     )
-    with pytest.raises(LLMUnavailable, match="kaputt"):
+    with pytest.raises(LLMUnavailable) as raised:
         await _llm(api).structured(
             session=db_session,
             feature=Feature.grade,
@@ -185,6 +185,8 @@ async def test_structured_api_error_is_unavailable(db_session):
             schema=Grade,
             now=NOW,
         )
+    assert raised.value.reason == "Die Claude-API hat mit Fehler 400 geantwortet."
+    assert "kaputt" in caplog.text
 
 
 async def test_structured_invalid_json_is_unavailable(db_session):
@@ -321,14 +323,18 @@ async def test_collect_success_records_batch_cost(db_session):
         {"type": "canceled"},
     ],
 )
-async def test_collect_failed_result_is_unavailable(db_session, result):
+async def test_collect_failed_result_is_unavailable(db_session, result, caplog):
     api = Api(
         httpx2.Response(200, json=_batch("ended")),
         httpx2.Response(200, json=_batch("ended")),
         _results(result),
     )
-    with pytest.raises(LLMUnavailable):
+    with pytest.raises(LLMUnavailable) as raised:
         await _collect(db_session, api)
+    assert raised.value.reason.startswith("Der Batch ")
+    if result["type"] == "errored":
+        assert raised.value.reason == "Der Batch ist fehlgeschlagen."
+        assert "überlastet" in caplog.text
 
 
 async def test_collect_refusal_is_unavailable(db_session):

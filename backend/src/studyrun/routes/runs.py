@@ -270,16 +270,16 @@ async def ack_intro(run_id: int, n: int, session: Session, now: Now) -> DoneOut:
 def _item_entry(run: Run, n: int) -> dict[str, Any]:
     entry = _entry(run, n)
     if entry["type"] != "item":
-        raise HTTPException(409, "Dieser Eintrag ist keine Aufgabe.")
+        raise HTTPException(409, "Dieser Eintrag ist keine Frage.")
     if entry.get("done"):
-        raise HTTPException(409, "Diese Aufgabe ist schon beantwortet.")
+        raise HTTPException(409, "Diese Frage ist schon beantwortet.")
     return entry
 
 
 async def _item(session: AsyncSession, entry: dict[str, Any]) -> Item:
     item = await session.get(Item, entry["item_id"])
     if item is None:
-        raise HTTPException(404, "Aufgabe nicht gefunden")
+        raise HTTPException(404, "Frage nicht gefunden")
     return item
 
 
