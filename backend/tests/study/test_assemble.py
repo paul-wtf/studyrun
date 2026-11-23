@@ -172,6 +172,19 @@ async def test_items_of_unintroduced_chapter_only_after_intro(db_session):
     assert all(e["type"] == "item" for e in entries)
 
 
+async def test_new_items_rotate_through_kinds(db_session):
+    module = await make_module(db_session)
+    first = await make_chapter(db_session, module, 0, introduced_at=LONG_AGO)
+    second = await make_chapter(db_session, module, 1, introduced_at=LONG_AGO)
+    mcs = [await make_item(db_session, first, ItemKind.mc) for _ in range(4)]
+    tfs = [await make_item(db_session, first, ItemKind.true_false) for _ in range(2)]
+    cloze = await make_item(db_session, first, ItemKind.cloze)
+    await make_item(db_session, second, ItemKind.true_false)
+
+    ids = item_ids(await build_run(db_session, Settings(run_new_items=5), NOW))
+    assert set(ids) == {mcs[0].id, tfs[0].id, cloze.id, mcs[1].id, tfs[1].id}
+
+
 async def test_one_free_item_included(db_session):
     module = await make_module(db_session)
     chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
@@ -179,9 +192,13 @@ async def test_one_free_item_included(db_session):
         await make_item(db_session, chapter, ItemKind.mc)
     free = await make_item(db_session, chapter, ItemKind.free)
 
-    entries = await build_run(db_session, Settings(), NOW)
-    assert len(item_ids(entries)) == 5
-    assert free.id in item_ids(entries)
+    ids = item_ids(await build_run(db_session, Settings(), NOW))
+    assert free.id in ids
+    assert len(ids) == 4
+
+    ids = item_ids(await build_run(db_session, Settings(run_new_items=1), NOW))
+    assert free.id in ids
+    assert len(ids) == 2
 
 
 async def test_due_free_item_preferred_over_unseen(db_session):

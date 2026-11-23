@@ -43,6 +43,19 @@ def _picks(rows: Any) -> list[_Pick]:
     return [_Pick(item_id, chapter_id, kind) for item_id, chapter_id, kind in rows]
 
 
+def _rotate_kinds(picks: list[_Pick]) -> list[_Pick]:
+    chapters: dict[int, dict[ItemKind, list[_Pick]]] = {}
+    for pick in picks:
+        chapters.setdefault(pick.chapter_id, {}).setdefault(pick.kind, []).append(pick)
+    ordered: list[_Pick] = []
+    for by_kind in chapters.values():
+        queues = list(by_kind.values())
+        while queues:
+            ordered += [queue.pop(0) for queue in queues]
+            queues = [queue for queue in queues if queue]
+    return ordered
+
+
 async def _due_items(session: AsyncSession, cutoff: datetime, limit: int | None) -> list[_Pick]:
     learning = ReviewState.card["state"].astext.cast(Integer).in_(_LEARNING)
     stmt = (
@@ -84,7 +97,7 @@ async def _unseen_items(
         stmt = stmt.join(Booklet, Booklet.id == Chapter.booklet_id).where(
             Booklet.module_id == module_id
         )
-    return _picks((await session.execute(stmt)).all())
+    return _rotate_kinds(_picks((await session.execute(stmt)).all()))
 
 
 async def _focus(session: AsyncSession) -> tuple[int, Chapter | None] | None:
