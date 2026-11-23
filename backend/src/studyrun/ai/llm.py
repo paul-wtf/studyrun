@@ -24,7 +24,11 @@ T = TypeVar("T", bound=BaseModel)
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 _EFFORT = {Feature.generate: "high", Feature.verify: "medium", Feature.grade: "low"}
-_MAX_TOKENS = {Feature.generate: 64_000, Feature.verify: 32_000, Feature.grade: 16_000}
+_MAX_TOKENS = {Feature.generate: 64_000, Feature.verify: 32_000, Feature.grade: 4_000}
+# Two attempts of 10 s stay below the 30 s Kubernetes grace period, so a shutdown cannot
+# cut off a submit whose batch id never reaches the database.
+SUBMIT_TIMEOUT_SECONDS = 10.0
+SUBMIT_MAX_RETRIES = 1
 
 _TRANSIENT = (
     anthropic.APIConnectionError,
@@ -213,7 +217,10 @@ class AnthropicLLM:
         await ensure_budget(session, feature, self._settings, now)
         request = {"custom_id": custom_id, "params": self._params(feature, system, content, schema)}
         try:
-            batch = await self._client.messages.batches.create(requests=[cast(Any, request)])
+            client = self._client.with_options(max_retries=SUBMIT_MAX_RETRIES)
+            batch = await client.messages.batches.create(
+                requests=[cast(Any, request)], timeout=SUBMIT_TIMEOUT_SECONDS
+            )
         except anthropic.AnthropicError as error:
             raise _api_error(error) from error
         return batch.id

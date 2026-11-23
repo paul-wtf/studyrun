@@ -119,6 +119,7 @@ async def test_structured_request_and_cost(db_session):
     ]
     assert body["messages"] == [{"role": "user", "content": CONTENT}]
     assert body["thinking"] == {"type": "adaptive"}
+    assert body["max_tokens"] == 4000
     assert body["output_config"]["effort"] == "low"
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert set(body["output_config"]["format"]["schema"]["properties"]) == {"score", "feedback"}
@@ -228,6 +229,7 @@ async def test_submit_creates_one_request_batch(db_session):
     )
     assert batch_id == "msgbatch_1"
     assert api.requests[0].url.path == "/v1/messages/batches"
+    assert api.requests[0].extensions["timeout"]["read"] <= 25
     [request] = api.body()["requests"]
     assert request["custom_id"] == "ver-7"
     params = request["params"]
@@ -238,6 +240,23 @@ async def test_submit_creates_one_request_batch(db_session):
     assert params["output_config"]["effort"] == "medium"
     assert params["output_config"]["format"]["type"] == "json_schema"
     assert await _calls(db_session) == []
+
+
+async def test_submit_retries_once_within_the_shutdown_window(db_session):
+    overloaded = httpx2.Response(529, json={"type": "error", "error": {"type": "overloaded_error"}})
+    api = Api(overloaded, overloaded, httpx2.Response(200, json=_batch("in_progress")))
+    with pytest.raises(LLMUnavailable):
+        await _llm(api).submit(
+            session=db_session,
+            feature=Feature.generate,
+            custom_id="gen-7",
+            system="Du erzeugst Fragen.",
+            content=CONTENT,
+            schema=Grade,
+            now=NOW,
+        )
+    assert len(api.requests) == 2
+    assert all(r.extensions["timeout"]["read"] == 10 for r in api.requests)
 
 
 async def test_submit_checks_budget_first(db_session):
