@@ -4,7 +4,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public path: string,
-    detail?: string
+    detail?: string,
+    public body?: unknown
   ) {
     super(detail ?? `API ${status} for ${path}`);
   }
@@ -22,17 +23,19 @@ function expire(): never {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const form = body instanceof FormData;
   const res = await fetch(path, {
     method,
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    headers: body === undefined || form ? undefined : { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body)
   });
   if (res.redirected || res.type === 'opaqueredirect' || res.status === 401) expire();
   const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
   if (!res.ok) {
-    const detail = isJson ? ((await res.json().catch(() => null)) as { detail?: unknown } | null)?.detail : undefined;
-    throw new ApiError(res.status, path, typeof detail === 'string' ? detail : undefined);
+    const parsed = isJson ? ((await res.json().catch(() => null)) as { detail?: unknown } | null) : null;
+    const detail = parsed?.detail;
+    throw new ApiError(res.status, path, typeof detail === 'string' ? detail : undefined, parsed);
   }
   if (!isJson) expire();
   return (await res.json()) as T;
@@ -41,6 +44,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T>(path: string) => request<T>('DELETE', path)
 };

@@ -7,7 +7,15 @@
 </script>
 
 <div class="shell">
-  <header><a href="/">studyrun</a></header>
+  <header>
+    <a class="brand" href="/">studyrun</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="/">Start</a>
+      <a href="/modules">Module</a>
+      <a href="/flags">Gemeldet</a>
+      <a href="/costs">Kosten</a>
+    </nav>
+  </header>
   <main>
     {#if $sessionExpired}
       <SessionExpired />
@@ -25,5 +33,7 @@
     min-height: 100dvh;
   }
   header { padding: 0.25rem 0 1rem; }
-  header a { color: var(--muted); text-decoration: none; font-weight: 600; letter-spacing: 0.02em; }
+  .brand { color: var(--muted); text-decoration: none; font-weight: 600; letter-spacing: 0.02em; }
+  nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.25rem; }
+  nav a { color: var(--accent); text-decoration: none; padding: 0.6rem 0; min-height: 44px; display: inline-flex; align-items: center; }
 </style>
