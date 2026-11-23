@@ -9,10 +9,14 @@ class ModelPrice(BaseModel):
     cache_write: float
 
 
-# USD per million tokens. Batch requests cost half of every price.
+# USD per million tokens, cache writes at the 5-minute rate. Batch requests cost half of
+# every price. The last three are where a refusal fallback can land.
 PRICES: dict[str, ModelPrice] = {
     "claude-opus-5-5": ModelPrice(input=4.00, output=20.00, cache_read=0.20, cache_write=5.00),
-    "claude-sonnet-5-5": ModelPrice(input=2.00, output=10.00, cache_read=0.20, cache_write=2.50),
+    "claude-sonnet-5-5": ModelPrice(input=2.00, output=10.00, cache_read=0.10, cache_write=2.50),
+    "claude-opus-5": ModelPrice(input=5.00, output=25.00, cache_read=0.50, cache_write=6.25),
+    "claude-opus-4-8": ModelPrice(input=5.00, output=25.00, cache_read=0.50, cache_write=6.25),
+    "claude-sonnet-5": ModelPrice(input=2.00, output=10.00, cache_read=0.20, cache_write=2.50),
 }
 
 

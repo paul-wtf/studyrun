@@ -25,3 +25,20 @@ def test_cost_batch_half():
 def test_unknown_model_raises():
     with pytest.raises(UnknownModel):
         cost_usd("gpt-nope", Usage(1, 1, 0, 0))
+
+
+def test_cost_sonnet_cache_read():
+    usage = Usage(0, 0, 1_000_000, 1_000_000)
+    assert cost_usd("claude-sonnet-5-5", usage) == Decimal("2.600000")
+
+
+@pytest.mark.parametrize(
+    ("model", "expected"),
+    [
+        ("claude-opus-5", "30.000000"),
+        ("claude-opus-4-8", "30.000000"),
+        ("claude-sonnet-5", "12.000000"),
+    ],
+)
+def test_fallback_models_are_priced(model, expected):
+    assert cost_usd(model, Usage(1_000_000, 1_000_000, 0, 0)) == Decimal(expected)

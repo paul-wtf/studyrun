@@ -115,6 +115,7 @@ class Chapter(Base):
     )
     error: Mapped[str | None] = mapped_column(Text)
     waiting_reason: Mapped[str | None] = mapped_column(Text)
+    waiting_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     batch_id: Mapped[str | None] = mapped_column(String(255))
     draft: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     summary: Mapped[str | None] = mapped_column(Text)
