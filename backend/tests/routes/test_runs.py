@@ -154,6 +154,13 @@ async def test_run_entries_carry_links(api, db_session, clock):
     assert entry["item"]["source"] == f"/api/booklets/{chapter.booklet_id}/pdf#page=1"
 
 
+async def test_entries_carry_no_model_answer_before_an_attempt(api, db_session, clock):
+    client, _ = api
+    await seed(db_session)
+    run = await start(client)
+    assert [e["model_answer"] for e in run["entries"] if e["type"] == "item"] == [None, None]
+
+
 async def test_public_view_hides_answers(api, db_session, clock):
     client, _ = api
     await seed(db_session)
@@ -243,6 +250,7 @@ async def test_free_answer_grading_unavailable_offers_self_rating(
     use_llm(api, [error])
     run = await start(client)
     n = index_of(run, free.id)
+    assert run["entries"][n]["model_answer"] is None
     resp = await client.post(
         f"/api/runs/{run['id']}/entries/{n}/answer", json={"answer": {"text": "meine"}}
     )
@@ -253,7 +261,14 @@ async def test_free_answer_grading_unavailable_offers_self_rating(
         "model_answer": "Muster",
     }
     assert await db_session.get(ReviewState, free.id) is None
-    assert (await start(client))["entries"][n]["grading_unavailable"] is True
+    reloaded = (await start(client))["entries"][n]
+    assert reloaded["grading_unavailable"] is True
+    assert reloaded["model_answer"] == "Muster"
+
+    again = await client.post(
+        f"/api/runs/{run['id']}/entries/{n}/answer", json={"answer": {"text": "noch mal"}}
+    )
+    assert again.status_code == 409
 
     rated = await client.post(
         f"/api/runs/{run['id']}/entries/{n}/self-rate", json={"rating": "good"}

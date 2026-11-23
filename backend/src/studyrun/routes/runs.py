@@ -94,6 +94,7 @@ class ItemEntryOut(BaseModel):
     type: Literal["item"]
     done: bool
     grading_unavailable: bool
+    model_answer: str | None
     item: ItemViewOut
 
 
@@ -213,6 +214,7 @@ async def _run_out(session: AsyncSession, run: Run) -> RunOut:
                     type="item",
                     done=done,
                     grading_unavailable=unavailable,
+                    model_answer=item.payload.get("model_answer") if unavailable else None,
                     item=_ITEM_VIEW.validate_python(view),
                 )
             )
@@ -308,6 +310,8 @@ async def answer(
             correct=result.correct, expected=result.expected, explanation=result.explanation
         )
 
+    if entry.get("grading_unavailable"):
+        raise HTTPException(409, "Bitte bewerte diese Antwort selbst.")
     text = body.answer.get("text")
     if not isinstance(text, str):
         raise HTTPException(422, "Ungültige Antwort.")
