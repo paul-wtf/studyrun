@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from fsrs import State
+from sqlalchemy import Integer, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from studyrun.ai.clock import local_day_bounds
 from studyrun.config import Settings
 from studyrun.models.db import (
     Booklet,
@@ -30,6 +32,7 @@ class _Pick:
 
 
 _ACTIVE_READY = (Item.status == ItemStatus.active, Chapter.status == ChapterStatus.ready)
+_LEARNING = (State.Learning.value, State.Relearning.value)
 
 
 def _select_picks() -> Any:
@@ -40,16 +43,28 @@ def _picks(rows: Any) -> list[_Pick]:
     return [_Pick(item_id, chapter_id, kind) for item_id, chapter_id, kind in rows]
 
 
-async def _due_items(session: AsyncSession, now: datetime, limit: int | None) -> list[_Pick]:
+async def _due_items(session: AsyncSession, cutoff: datetime, limit: int | None) -> list[_Pick]:
+    learning = ReviewState.card["state"].astext.cast(Integer).in_(_LEARNING)
     stmt = (
         _select_picks()
         .join(ReviewState, ReviewState.item_id == Item.id)
-        .where(*_ACTIVE_READY, ReviewState.due <= now)
-        .order_by(ReviewState.due, Item.id)
+        .where(*_ACTIVE_READY, ReviewState.due < cutoff)
+        .order_by(case((learning, 0), else_=1), ReviewState.due, Item.id)
     )
     if limit is not None:
         stmt = stmt.limit(limit)
     return _picks((await session.execute(stmt)).all())
+
+
+async def _due_count(session: AsyncSession, cutoff: datetime) -> int:
+    stmt = (
+        select(func.count())
+        .select_from(Item)
+        .join(Chapter, Chapter.id == Item.chapter_id)
+        .join(ReviewState, ReviewState.item_id == Item.id)
+        .where(*_ACTIVE_READY, ReviewState.due < cutoff)
+    )
+    return await session.scalar(stmt) or 0
 
 
 async def _unseen_items(
@@ -113,10 +128,12 @@ def _interleave(picks: list[_Pick]) -> list[_Pick]:
 
 
 async def build_run(session: AsyncSession, settings: Settings, now: datetime) -> list[RunEntry]:
-    picks = await _due_items(session, now, settings.run_review_cap)
+    _, cutoff = local_day_bounds(now, settings.timezone)
+    picks = await _due_items(session, cutoff, settings.run_review_cap)
     intro_chapter_id: int | None = None
+    intake = await _due_count(session, cutoff) <= settings.run_review_cap
 
-    focus = await _focus(session)
+    focus = await _focus(session) if intake else None
     if focus is not None:
         module_id, next_chapter = focus
         taken = {p.item_id for p in picks}
@@ -139,10 +156,10 @@ async def build_run(session: AsyncSession, settings: Settings, now: datetime) ->
         taken = {p.item_id for p in picks}
         free = [
             p
-            for p in await _due_items(session, now, None)
+            for p in await _due_items(session, cutoff, None)
             if p.kind == ItemKind.free and p.item_id not in taken
         ]
-        if not free:
+        if not free and intake:
             unseen = await _unseen_items(session, module_id=None, chapter_id=None, introduced=True)
             if intro_chapter_id is not None:
                 unseen += await _unseen_items(

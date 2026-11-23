@@ -18,14 +18,23 @@ from studyrun.models.db import (
 )
 
 
-def _mature_card(due: datetime) -> Card:
+def _card(due: datetime, state: State) -> Card:
+    if state == State.Review:
+        return Card(
+            state=state,
+            step=None,
+            stability=10.0,
+            difficulty=5.0,
+            due=due,
+            last_review=due - timedelta(days=10),
+        )
     return Card(
-        state=State.Review,
-        step=None,
-        stability=10.0,
+        state=state,
+        step=0,
+        stability=2.0,
         difficulty=5.0,
         due=due,
-        last_review=due - timedelta(days=10),
+        last_review=due - timedelta(minutes=10),
     )
 
 
@@ -68,6 +77,7 @@ async def make_item(
     *,
     status: ItemStatus = ItemStatus.active,
     due: datetime | None = None,
+    state: State = State.Review,
     payload: dict[str, Any] | None = None,
 ) -> Item:
     item = Item(
@@ -78,7 +88,7 @@ async def make_item(
     if due is not None:
         session.add(
             ReviewState(
-                item_id=item.id, card=_mature_card(due).to_dict(), due=due, last_review=None
+                item_id=item.id, card=_card(due, state).to_dict(), due=due, last_review=None
             )
         )
         await session.flush()

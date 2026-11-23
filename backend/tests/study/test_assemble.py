@@ -1,12 +1,15 @@
 import itertools
+import random
 from datetime import UTC, datetime, timedelta
 
-from fsrs import Rating
+import fsrs.scheduler
+from fsrs import Rating, State
 from helpers import make_chapter, make_item, make_module
 from sqlalchemy import func, select
 
+from studyrun.ai.clock import local_day_bounds
 from studyrun.config import Settings
-from studyrun.models.db import ChapterStatus, ItemKind, ItemStatus, ReviewState
+from studyrun.models.db import Chapter, ChapterStatus, Item, ItemKind, ItemStatus, ReviewState
 from studyrun.study.assemble import build_run
 from studyrun.study.scheduling import record_review
 
@@ -30,6 +33,8 @@ async def test_reviews_capped_after_long_break(db_session):
         await make_item(db_session, chapter, kinds[i % 3], due=LONG_AGO + timedelta(minutes=i))
         for i in range(200)
     ]
+    for kind in [*kinds, ItemKind.free]:
+        await make_item(db_session, chapter, kind)
     settings = Settings()
 
     entries = await build_run(db_session, settings, NOW)
@@ -50,6 +55,85 @@ async def test_reviews_capped_after_long_break(db_session):
         now += timedelta(days=1)
         counts.append(await backlog(now))
     assert counts[0] > counts[1] > counts[2] > counts[3]
+
+
+async def test_no_new_items_or_intro_while_reviews_pile_up(db_session):
+    module = await make_module(db_session)
+    seen = await make_chapter(db_session, module, 0, introduced_at=LONG_AGO)
+    later = await make_chapter(db_session, module, 1)
+    due = [
+        await make_item(db_session, seen, ItemKind.mc, due=LONG_AGO + timedelta(minutes=i))
+        for i in range(200)
+    ]
+    for kind in (ItemKind.true_false, ItemKind.cloze, ItemKind.free):
+        await make_item(db_session, seen, kind)
+        await make_item(db_session, later, kind)
+
+    entries = await build_run(db_session, Settings(), NOW)
+    assert all(e["type"] == "item" for e in entries)
+    assert set(item_ids(entries)) == {i.id for i in due[:8]}
+
+
+async def test_new_items_resume_once_the_backlog_fits_a_run(db_session):
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    due = [await make_item(db_session, chapter, ItemKind.mc, due=LONG_AGO) for _ in range(8)]
+    new = await make_item(db_session, chapter, ItemKind.true_false)
+
+    ids = item_ids(await build_run(db_session, Settings(), NOW))
+    assert set(ids) == {i.id for i in due} | {new.id}
+
+
+async def test_learning_cards_come_before_overdue_reviews(db_session):
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    await make_item(db_session, chapter, ItemKind.mc, due=NOW - timedelta(weeks=3))
+    learning = await make_item(
+        db_session, chapter, ItemKind.mc, due=NOW + timedelta(hours=2), state=State.Learning
+    )
+    relearning = await make_item(
+        db_session, chapter, ItemKind.mc, due=NOW + timedelta(hours=1), state=State.Relearning
+    )
+    tomorrow = await make_item(
+        db_session, chapter, ItemKind.mc, due=NOW + timedelta(days=1), state=State.Learning
+    )
+
+    settings = Settings(run_review_cap=2, run_new_items=0)
+    ids = item_ids(await build_run(db_session, settings, NOW))
+    assert set(ids) == {relearning.id, learning.id}
+    assert tomorrow.id not in ids
+
+
+async def test_daily_study_keeps_the_backlog_bounded(db_session, monkeypatch):
+    monkeypatch.setattr(fsrs.scheduler, "random", random.Random(0).random)
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    kinds = [ItemKind.mc, ItemKind.true_false, ItemKind.cloze, ItemKind.free]
+    for i in range(200):
+        await make_item(db_session, chapter, kinds[i % 4])
+    settings = Settings()
+
+    async def due_by_tomorrow(at):
+        _, today_end = local_day_bounds(at, settings.timezone)
+        _, tomorrow_end = local_day_bounds(today_end + timedelta(hours=12), settings.timezone)
+        return await db_session.scalar(
+            select(func.count())
+            .select_from(ReviewState)
+            .join(Item, Item.id == ReviewState.item_id)
+            .join(Chapter, Chapter.id == Item.chapter_id)
+            .where(Item.status == ItemStatus.active, ReviewState.due < tomorrow_end)
+        )
+
+    now = NOW
+    answers = itertools.count()
+    backlog = []
+    for _ in range(30):
+        for item_id in item_ids(await build_run(db_session, settings, now)):
+            rating = Rating.Again if next(answers) % 4 == 0 else Rating.Good
+            await record_review(db_session, item_id, rating, now, correct=None, score=None)
+        backlog.append(await due_by_tomorrow(now))
+        now += timedelta(days=1)
+    assert max(backlog) <= 2 * settings.run_review_cap, backlog
 
 
 async def test_intro_before_new_chapter_items(db_session):
@@ -154,5 +238,5 @@ async def test_focus_module_follows_position(db_session):
 
     assert item_ids(await build_run(db_session, Settings(), NOW)) == [i1.id]
 
-    await record_review(db_session, i1.id, Rating.Good, NOW, correct=True, score=None)
+    await record_review(db_session, i1.id, Rating.Easy, NOW, correct=True, score=None)
     assert item_ids(await build_run(db_session, Settings(), NOW)) == [i2.id]
