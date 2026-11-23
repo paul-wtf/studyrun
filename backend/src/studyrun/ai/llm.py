@@ -37,10 +37,14 @@ _TRANSIENT = (
 )
 
 
+_RETRYABLE_STATUS = {408, 409, 429}
+
+
 class LLMUnavailable(Exception):
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, retryable: bool = False) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.retryable = retryable
 
 
 class LLM(Protocol):
@@ -124,9 +128,13 @@ def _parse[M: BaseModel](schema: type[M], message: Any) -> M:
 def _api_error(error: anthropic.AnthropicError) -> LLMUnavailable:
     log.warning("Claude API error: %s", error)
     if isinstance(error, anthropic.APIStatusError):
-        return LLMUnavailable(f"Die Claude-API hat mit Fehler {error.status_code} geantwortet.")
+        status = error.status_code
+        return LLMUnavailable(
+            f"Die Claude-API hat mit Fehler {status} geantwortet.",
+            retryable=status in _RETRYABLE_STATUS or status >= 500,
+        )
     if isinstance(error, anthropic.APIConnectionError):
-        return LLMUnavailable("Die Claude-API ist nicht erreichbar.")
+        return LLMUnavailable("Die Claude-API ist nicht erreichbar.", retryable=True)
     return LLMUnavailable("Fehler bei der Anfrage an die Claude-API.")
 
 

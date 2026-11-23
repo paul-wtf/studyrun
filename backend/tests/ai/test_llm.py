@@ -187,6 +187,52 @@ async def test_structured_api_error_is_unavailable(db_session, caplog):
         )
     assert raised.value.reason == "Die Claude-API hat mit Fehler 400 geantwortet."
     assert "kaputt" in caplog.text
+    assert raised.value.retryable is False
+
+
+@pytest.mark.parametrize(
+    ("response", "retryable"),
+    [
+        (httpx2.Response(408, json={"type": "error", "error": {"type": "timeout_error"}}), True),
+        (httpx2.Response(409, json={"type": "error", "error": {"type": "conflict"}}), True),
+        (httpx2.Response(429, json={"type": "error", "error": {"type": "rate_limit_error"}}), True),
+        (httpx2.Response(500, json={"type": "error", "error": {"type": "api_error"}}), True),
+        (httpx2.Response(529, json={"type": "error", "error": {"type": "overloaded_error"}}), True),
+        (httpx2.ConnectError("no route"), True),
+        (httpx2.Response(400, json={"type": "error", "error": {"type": "invalid_request"}}), False),
+        (
+            httpx2.Response(413, json={"type": "error", "error": {"type": "request_too_large"}}),
+            False,
+        ),
+    ],
+)
+async def test_submit_errors_say_whether_a_retry_can_help(db_session, response, retryable):
+    api = Api(response, response)
+    with pytest.raises(LLMUnavailable) as raised:
+        await _llm(api).submit(
+            session=db_session,
+            feature=Feature.verify,
+            custom_id="ver-7",
+            system="s",
+            content=CONTENT,
+            schema=Grade,
+            now=NOW,
+        )
+    assert raised.value.retryable is retryable
+
+
+async def test_a_refusal_is_not_retryable(db_session):
+    api = Api(httpx2.Response(200, json=_message("", stop_reason="refusal")))
+    with pytest.raises(LLMUnavailable) as raised:
+        await _llm(api).structured(
+            session=db_session,
+            feature=Feature.grade,
+            system="s",
+            content=CONTENT,
+            schema=Grade,
+            now=NOW,
+        )
+    assert raised.value.retryable is False
 
 
 async def test_structured_invalid_json_is_unavailable(db_session):

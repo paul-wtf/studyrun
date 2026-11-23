@@ -113,6 +113,9 @@ async def _submit_verification(
         return
     except LLMUnavailable as error:
         log.warning("verification of chapter %s not submitted: %s", chapter.id, error.reason)
+        if not error.retryable:
+            _fail(chapter, error.reason)
+            return
         chapter.batch_id = None
         chapter.waiting_reason = RETRYING_VERIFICATION
         chapter.waiting_since = None

@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.llm import LLMUnavailable
 from studyrun.content import prompts
-from studyrun.content.pipeline import advance_chapter
+from studyrun.content.pipeline import advance_chapter, verifiable
 from studyrun.content.schemas import ChapterContent, Verification
 from studyrun.models.db import Chapter, ChapterStatus, Feature, Item, ItemStatus, ReviewState
 
@@ -272,8 +272,8 @@ async def test_verification_submit_error_keeps_the_draft(db_session):
     llm.queue(f"ver-{chapter.id}", verdicts(True, True))
     await _advance(db_session, llm, chapter.id)
     llm.submit_errors += [
-        LLMUnavailable("Fehler der Claude-API: overloaded"),
-        LLMUnavailable("Fehler der Claude-API: overloaded"),
+        LLMUnavailable("Die Claude-API hat mit Fehler 529 geantwortet.", retryable=True),
+        LLMUnavailable("Die Claude-API ist nicht erreichbar.", retryable=True),
     ]
 
     chapter = await _advance(db_session, llm, chapter.id)
@@ -294,6 +294,21 @@ async def test_verification_submit_error_keeps_the_draft(db_session):
     chapter = await _advance(db_session, llm, chapter.id)
     assert chapter.status == ChapterStatus.ready
     assert [c.feature for c in llm.submits] == [Feature.generate, Feature.verify]
+
+
+async def test_permanent_verification_submit_error_fails_and_keeps_the_draft(db_session):
+    chapter = await seed_pending(db_session)
+    llm = FakeBatchLLM()
+    llm.queue(f"gen-{chapter.id}", content([mc()]))
+    await _advance(db_session, llm, chapter.id)
+    llm.submit_errors.append(LLMUnavailable("Die Claude-API hat mit Fehler 400 geantwortet."))
+
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert chapter.status == ChapterStatus.failed
+    assert chapter.error == "Die Claude-API hat mit Fehler 400 geantwortet."
+    assert chapter.waiting_reason is None
+    assert chapter.draft is not None and len(chapter.draft["items"]) == 1
+    assert verifiable(chapter.draft)
 
 
 async def test_batch_error_fails_with_message(db_session):
