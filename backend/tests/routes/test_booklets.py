@@ -116,6 +116,31 @@ async def test_pdf_download_in_a_fresh_session(api, db_session):
     assert resp.content == data
 
 
+async def test_pdf_is_cached_and_revalidated(api):
+    client, _ = api
+    module_id = await _module(client)
+    data = build_pdf(3)
+    booklet = (await client.post(f"/api/modules/{module_id}/booklets", files=_files(data))).json()
+    url = f"/api/booklets/{booklet['id']}/pdf"
+
+    first = await client.get(url)
+    assert first.headers["cache-control"] == "private, max-age=86400"
+    etag = first.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+    again = await client.get(url, headers={"If-None-Match": etag})
+    assert again.status_code == 304
+    assert again.content == b""
+    assert again.headers["etag"] == etag
+
+    weak = await client.get(url, headers={"If-None-Match": f'"other", W/{etag}'})
+    assert weak.status_code == 304
+
+    stale = await client.get(url, headers={"If-None-Match": '"other"'})
+    assert stale.status_code == 200
+    assert stale.content == data
+
+
 async def test_module_listing_does_not_load_pdf_bytes(api, db_session):
     client, _ = api
     module_id = await _module(client)

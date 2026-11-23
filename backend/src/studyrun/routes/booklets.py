@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,15 +91,31 @@ async def upload_booklet(
     return (await booklets_out(session, [booklet.id]))[booklet.id]
 
 
+def _matches(if_none_match: str | None, etag: str) -> bool:
+    if if_none_match is None:
+        return False
+    tags = [tag.strip().removeprefix("W/") for tag in if_none_match.split(",")]
+    return "*" in tags or etag in tags
+
+
 @router.get("/booklets/{booklet_id}/pdf")
-async def booklet_pdf(booklet_id: int, session: Session) -> Response:
-    data = await session.scalar(select(Booklet.pdf).where(Booklet.id == booklet_id))
-    if data is None:
+async def booklet_pdf(
+    booklet_id: int,
+    session: Session,
+    if_none_match: Annotated[str | None, Header()] = None,
+) -> Response:
+    created_at = await session.scalar(select(Booklet.created_at).where(Booklet.id == booklet_id))
+    if created_at is None:
         raise HTTPException(404, "Heft nicht gefunden")
+    etag = f'"{booklet_id}-{created_at.timestamp():.6f}"'
+    headers = {"Cache-Control": "private, max-age=86400", "ETag": etag}
+    if _matches(if_none_match, etag):
+        return Response(status_code=304, headers=headers)
+    data = await session.scalar(select(Booklet.pdf).where(Booklet.id == booklet_id))
     return Response(
         data,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline"},
+        headers={**headers, "Content-Disposition": "inline"},
     )
 
 
