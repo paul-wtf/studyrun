@@ -2,7 +2,7 @@ import io
 from dataclasses import dataclass
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.errors import PyPdfError
+from pypdf.errors import DependencyError, PyPdfError
 
 MIN_TEXT_CHARS = 200
 TEXT_PROBE_PAGES = 5
@@ -25,7 +25,7 @@ class ChapterSlice:
 def _open(data: bytes) -> PdfReader:
     try:
         reader = PdfReader(io.BytesIO(data))
-        if reader.is_encrypted:
+        if reader.is_encrypted and not reader.decrypt(""):
             raise BookletError(
                 "Das PDF ist verschlüsselt. Bitte eine ungeschützte Fassung hochladen."
             )
@@ -34,6 +34,10 @@ def _open(data: bytes) -> PdfReader:
         return reader
     except BookletError:
         raise
+    except DependencyError:
+        raise BookletError(
+            "Das PDF ist verschlüsselt. Bitte eine ungeschützte Fassung hochladen."
+        ) from None
     except (PyPdfError, ValueError, OSError, KeyError, TypeError, RecursionError):
         raise BookletError("Die Datei ist kein lesbares PDF.") from None
 
@@ -79,14 +83,17 @@ def _windows(first: int, last: int, window: int) -> list[tuple[int, int]]:
     return [(a, min(a + window - 1, last)) for a in range(first, last + 1, window)]
 
 
-def extract_slice(data: bytes, first_page: int, last_page: int) -> bytes:
-    reader = _open(data)
+def _slice(reader: PdfReader, first_page: int, last_page: int) -> bytes:
     writer = PdfWriter()
     for index in range(first_page - 1, last_page):
         writer.add_page(reader.pages[index])
     buffer = io.BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
+
+
+def extract_slice(data: bytes, first_page: int, last_page: int) -> bytes:
+    return _slice(_open(data), first_page, last_page)
 
 
 def split_booklet(data: bytes, *, max_pages: int, window: int) -> list[ChapterSlice]:
@@ -117,5 +124,5 @@ def split_booklet(data: bytes, *, max_pages: int, window: int) -> list[ChapterSl
         else:
             parts = [(title, first, last)]
         for part_title, a, b in parts:
-            slices.append(ChapterSlice(part_title, a, b, extract_slice(data, a, b)))
+            slices.append(ChapterSlice(part_title, a, b, _slice(reader, a, b)))
     return slices

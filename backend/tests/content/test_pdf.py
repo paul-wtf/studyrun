@@ -1,5 +1,8 @@
+import io
+
 import pytest
 from pdfs import build_pdf, page_count
+from pypdf import PdfReader
 
 from studyrun.content.pdf import BookletError, extract_slice, split_booklet
 
@@ -65,3 +68,11 @@ def test_rejects_no_text_layer():
     with pytest.raises(BookletError) as error:
         split_booklet(build_pdf(5, text=False), max_pages=40, window=15)
     assert "Textebene" in error.value.message_de
+
+
+def test_accepts_owner_password_only():
+    data = build_pdf(6, outline=[("A", 1), ("B", 4)], password="geheim", user_password="")
+    slices = split_booklet(data, max_pages=40, window=15)
+    assert ranges(slices) == [(1, 3), (4, 6)]
+    assert page_count(slices[0].pdf) == 3
+    assert not PdfReader(io.BytesIO(extract_slice(data, 2, 5))).is_encrypted

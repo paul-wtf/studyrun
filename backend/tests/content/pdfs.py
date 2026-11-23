@@ -23,6 +23,7 @@ def build_pdf(
     outline: list[tuple[str, int]] | None = None,
     text: bool = True,
     password: str | None = None,
+    user_password: str | None = None,
 ) -> bytes:
     writer = PdfWriter()
     font = DictionaryObject(
@@ -44,7 +45,10 @@ def build_pdf(
     for title, page_number in outline or []:
         writer.add_outline_item(title=title, page_number=page_number - 1)
     if password is not None:
-        writer.encrypt(password)
+        writer.encrypt(
+            user_password=user_password if user_password is not None else password,
+            owner_password=password if user_password is not None else None,
+        )
     buffer = io.BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
