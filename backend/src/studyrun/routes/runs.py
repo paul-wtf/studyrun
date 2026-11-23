@@ -15,7 +15,7 @@ from studyrun.ai.clock import local_day_bounds
 from studyrun.ai.llm import LLM, LLMUnavailable
 from studyrun.config import Settings
 from studyrun.deps import get_llm, get_now, get_settings
-from studyrun.models.db import Chapter, Item, ItemKind, ItemStatus, ReviewState, Run
+from studyrun.models.db import Chapter, ChapterStatus, Item, ItemKind, ItemStatus, ReviewState, Run
 from studyrun.routes.modules import Session
 from studyrun.study.answers import check_objective, public_view
 from studyrun.study.assemble import build_run
@@ -129,7 +129,7 @@ async def ack_intro(run_id: int, n: int, session: Session, now: Now) -> dict[str
     run = await _get_run(session, run_id)
     entry = _entry(run, n)
     if entry["type"] != "intro":
-        raise HTTPException(409, "Dieser Eintrag ist keine Einfuehrung.")
+        raise HTTPException(409, "Dieser Eintrag ist keine Einführung.")
     chapter = await session.get(Chapter, entry["chapter_id"])
     if chapter is not None and chapter.introduced_at is None:
         chapter.introduced_at = now
@@ -166,7 +166,7 @@ async def answer(
         try:
             result = check_objective(item, body.answer)
         except ValueError as exc:
-            raise HTTPException(422, "Ungueltige Antwort.") from exc
+            raise HTTPException(422, "Ungültige Antwort.") from exc
         await record_review(
             session,
             item.id,
@@ -185,7 +185,7 @@ async def answer(
 
     text = body.answer.get("text")
     if not isinstance(text, str):
-        raise HTTPException(422, "Ungueltige Antwort.")
+        raise HTTPException(422, "Ungültige Antwort.")
     model_answer = item.payload["model_answer"]
     reason: str | None = None
     try:
@@ -193,7 +193,7 @@ async def answer(
     except BudgetExceeded:
         reason = "Tagesbudget erreicht"
     except LLMUnavailable:
-        reason = "Bewertung gerade nicht moeglich"
+        reason = "Bewertung gerade nicht möglich"
     if reason is not None:
         _store(run, n, {**entry, "grading_unavailable": True})
         await session.flush()
@@ -223,7 +223,7 @@ async def self_rate(
     run = await _get_run(session, run_id)
     entry = _item_entry(run, n)
     if not entry.get("grading_unavailable"):
-        raise HTTPException(409, "Selbstbewertung ist nur moeglich, wenn die Bewertung ausfaellt.")
+        raise HTTPException(409, "Selbstbewertung ist nur möglich, wenn die Bewertung ausfällt.")
     good = body.rating == "good"
     await record_review(
         session,
@@ -251,13 +251,14 @@ async def finish(run_id: int, session: Session, settings: AppSettings, now: Now)
     }
     _, today_end = local_day_bounds(now, settings.timezone)
     tomorrow_end = local_day_bounds(today_end + timedelta(hours=12), settings.timezone)[1]
-    due_tomorrow = await session.scalar(
+    due_count = await session.scalar(
         select(func.count())
         .select_from(ReviewState)
         .join(Item, Item.id == ReviewState.item_id)
+        .join(Chapter, Chapter.id == Item.chapter_id)
         .where(
             Item.status == ItemStatus.active,
-            ReviewState.due >= today_end,
+            Chapter.status == ChapterStatus.ready,
             ReviewState.due < tomorrow_end,
         )
     )
@@ -266,5 +267,5 @@ async def finish(run_id: int, session: Session, settings: AppSettings, now: Now)
         "answered": len(items),
         "correct": sum(1 for e in items if e.get("correct")),
         "chapters_introduced": [titles[i] for i in chapter_ids if i in titles],
-        "due_tomorrow": due_tomorrow or 0,
+        "due_tomorrow": min(due_count or 0, settings.run_review_cap),
     }

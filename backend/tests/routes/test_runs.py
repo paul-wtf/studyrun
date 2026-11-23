@@ -8,7 +8,7 @@ from study.helpers import make_chapter, make_item, make_module
 
 from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.llm import LLMUnavailable
-from studyrun.deps import get_llm, get_now
+from studyrun.deps import get_llm, get_now, get_settings
 from studyrun.models.db import (
     Feature,
     FlagReason,
@@ -190,7 +190,7 @@ async def test_free_answer_graded(api, db_session, clock):
     ("error", "reason"),
     [
         (BudgetExceeded(Feature.grade, 1, 1), "Tagesbudget erreicht"),
-        (LLMUnavailable("down"), "Bewertung gerade nicht moeglich"),
+        (LLMUnavailable("down"), "Bewertung gerade nicht möglich"),
     ],
 )
 async def test_free_answer_grading_unavailable_offers_self_rating(
@@ -299,8 +299,20 @@ async def test_finish_partial_run(api, db_session, clock):
     assert body["answered"] == 1
     assert body["correct"] == 1
     assert body["chapters_introduced"] == [chapter.title]
-    assert body["due_tomorrow"] == 1
+    assert body["due_tomorrow"] == 3
     assert (await db_session.scalars(select(ReviewLog))).all().__len__() == 1
+
+
+async def test_finish_caps_due_tomorrow(api, db_session, clock):
+    client, _ = api
+    chapter, _, _ = await seed(db_session)
+    for _ in range(20):
+        item = await make_item(db_session, chapter, ItemKind.mc, payload=MC)
+        db_session.add(ReviewState(item_id=item.id, card={}, due=berlin(20, 8), last_review=None))
+    await db_session.flush()
+    run = await start(client)
+    body = (await client.post(f"/api/runs/{run['id']}/finish")).json()
+    assert body["due_tomorrow"] == get_settings().run_review_cap
 
 
 async def test_flag_removes_from_next_run(api, db_session, clock):
