@@ -3,6 +3,7 @@ import random
 from datetime import UTC, datetime, timedelta
 
 import fsrs.scheduler
+import pytest
 from fsrs import Rating, State
 from helpers import make_chapter, make_item, make_module
 from sqlalchemy import func, select
@@ -104,8 +105,9 @@ async def test_learning_cards_come_before_overdue_reviews(db_session):
     assert tomorrow.id not in ids
 
 
-async def test_daily_study_keeps_the_backlog_bounded(db_session, monkeypatch):
-    monkeypatch.setattr(fsrs.scheduler, "random", random.Random(0).random)
+@pytest.mark.parametrize("seed", [0, 1, 2])
+async def test_daily_study_keeps_the_backlog_bounded(db_session, monkeypatch, seed):
+    monkeypatch.setattr(fsrs.scheduler, "random", random.Random(seed).random)
     module = await make_module(db_session)
     chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
     kinds = [ItemKind.mc, ItemKind.true_false, ItemKind.cloze, ItemKind.free]
@@ -127,13 +129,16 @@ async def test_daily_study_keeps_the_backlog_bounded(db_session, monkeypatch):
     now = NOW
     answers = itertools.count()
     backlog = []
+    seen = []
     for _ in range(30):
         for item_id in item_ids(await build_run(db_session, settings, now)):
             rating = Rating.Again if next(answers) % 4 == 0 else Rating.Good
             await record_review(db_session, item_id, rating, now, correct=None, score=None)
         backlog.append(await due_by_tomorrow(now))
+        seen.append(await db_session.scalar(select(func.count()).select_from(ReviewState)))
         now += timedelta(days=1)
-    assert max(backlog) <= 2 * settings.run_review_cap, backlog
+    assert max(backlog[-10:]) <= max(backlog[:10]) + settings.run_review_cap // 2, backlog
+    assert seen[9] < seen[19] < seen[29], seen
 
 
 async def test_intro_before_new_chapter_items(db_session):
