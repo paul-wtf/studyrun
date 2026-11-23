@@ -1,6 +1,7 @@
 import pytest
 from content.pdfs import build_pdf
-from sqlalchemy import select
+from sqlalchemy import event, select
+from sqlalchemy.engine import Engine
 
 from studyrun.deps import get_settings
 from studyrun.models.db import Chapter, ChapterStatus
@@ -100,6 +101,37 @@ async def test_pdf_download(api):
     assert resp.headers["content-disposition"].startswith("inline")
     assert resp.content == data
     assert (await client.get("/api/booklets/999/pdf")).status_code == 404
+
+
+async def test_pdf_download_in_a_fresh_session(api, db_session):
+    client, _ = api
+    module_id = await _module(client)
+    data = build_pdf(3)
+    booklet = (await client.post(f"/api/modules/{module_id}/booklets", files=_files(data))).json()
+    db_session.expunge_all()
+    resp = await client.get(f"/api/booklets/{booklet['id']}/pdf")
+    assert resp.status_code == 200
+    assert resp.content == data
+
+
+async def test_module_listing_does_not_load_pdf_bytes(api, db_session):
+    client, _ = api
+    module_id = await _module(client)
+    await client.post(f"/api/modules/{module_id}/booklets", files=_files(build_pdf(3)))
+    db_session.expunge_all()
+    statements: list[str] = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", capture)
+    try:
+        assert (await client.get("/api/modules")).status_code == 200
+        assert (await client.get(f"/api/modules/{module_id}/chapters")).status_code == 200
+    finally:
+        event.remove(Engine, "before_cursor_execute", capture)
+    assert any("FROM booklets" in s for s in statements)
+    assert not any("booklets.pdf" in s for s in statements)
 
 
 async def _first_chapter(client, db_session):

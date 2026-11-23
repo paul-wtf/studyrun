@@ -91,7 +91,7 @@ class Booklet(Base):
         ForeignKey("modules.id", ondelete="CASCADE"), nullable=False, index=True
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
     page_count: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

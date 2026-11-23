@@ -82,11 +82,11 @@ async def upload_booklet(
 
 @router.get("/booklets/{booklet_id}/pdf")
 async def booklet_pdf(booklet_id: int, session: Session) -> Response:
-    booklet = await session.get(Booklet, booklet_id)
-    if booklet is None:
+    data = await session.scalar(select(Booklet.pdf).where(Booklet.id == booklet_id))
+    if data is None:
         raise HTTPException(404, "Heft nicht gefunden")
     return Response(
-        booklet.pdf,
+        data,
         media_type="application/pdf",
         headers={"Content-Disposition": "inline"},
     )
