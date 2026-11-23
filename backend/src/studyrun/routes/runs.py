@@ -37,7 +37,7 @@ class SelfRateIn(BaseModel):
     rating: Literal["again", "good"]
 
 
-def _pdf_link(booklet_id: int, page: int) -> str:
+def pdf_link(booklet_id: int, page: int) -> str:
     return f"/api/booklets/{booklet_id}/pdf#page={page}"
 
 
@@ -96,11 +96,11 @@ async def _run_out(session: AsyncSession, run: Run) -> dict[str, Any]:
                 "title": chapter.title,
                 "summary": chapter.summary,
                 "concepts": chapter.concepts,
-                "source": _pdf_link(booklet_id, chapter.first_page),
+                "source": pdf_link(booklet_id, chapter.first_page),
             }
         else:
             item, booklet_id = items[entry["item_id"]]
-            out["item"] = public_view(item) | {"source": _pdf_link(booklet_id, item.source_page)}
+            out["item"] = public_view(item) | {"source": pdf_link(booklet_id, item.source_page)}
         entries.append(out)
     return {"id": run.id, "entries": entries}
 

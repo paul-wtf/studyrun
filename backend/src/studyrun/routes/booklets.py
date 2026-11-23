@@ -98,7 +98,7 @@ async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
     if chapter is None:
         raise HTTPException(404, "Kapitel nicht gefunden")
     if chapter.status != ChapterStatus.failed:
-        raise HTTPException(409, "Nur fehlgeschlagene Kapitel koennen neu gestartet werden.")
+        raise HTTPException(409, "Nur fehlgeschlagene Kapitel können neu gestartet werden.")
     chapter.status = ChapterStatus.pending
     chapter.error = None
     chapter.batch_id = None

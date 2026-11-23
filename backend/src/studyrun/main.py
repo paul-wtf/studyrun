@@ -9,7 +9,7 @@ from studyrun.ai.llm import AnthropicLLM
 from studyrun.content.worker import run_worker
 from studyrun.db import make_engine, make_session_factory
 from studyrun.deps import get_settings
-from studyrun.routes import booklets, health, items, modules, runs
+from studyrun.routes import booklets, costs, health, items, modules, runs
 
 
 def create_app() -> FastAPI:
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     api.include_router(booklets.router)
     api.include_router(runs.router)
     api.include_router(items.router)
+    api.include_router(costs.router)
     app.include_router(api)
     return app
 
