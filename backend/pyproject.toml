@@ -12,7 +12,7 @@ dependencies = [
     "anthropic>=0.40",
     "pypdf>=5.0",
     "cryptography>=43",
-    "fsrs>=4.0",
+    "fsrs>=6.3,<7",
     "python-multipart>=0.0.12",
     "tzdata>=2024.1",
 ]
