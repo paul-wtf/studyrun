@@ -12,7 +12,7 @@ from studyrun.models.db import Booklet, Chapter, ChapterStatus, Item, ItemStatus
 
 router = APIRouter()
 
-Session = Annotated[AsyncSession, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 
 class ChapterCounts(BaseModel):
