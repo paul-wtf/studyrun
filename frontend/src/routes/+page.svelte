@@ -10,6 +10,11 @@
   let resume = $state(false);
   let error = $state('');
 
+  const spent = (features: string[]) =>
+    features.reduce((sum, f) => sum + (costs?.today.by_feature[f] ?? 0), 0);
+  const grading = $derived(spent(['grade', 'tutor']));
+  const generation = $derived(spent(['generate', 'verify']));
+
   onMount(async () => {
     try {
       const [c, modules, current] = await Promise.all([
@@ -38,7 +43,8 @@
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
   {#if costs}
-    <p class="muted">Heute {euro(costs.today.total)} von {euro(costs.cap_today)} $ ausgegeben</p>
+    <p class="muted">Bewertung heute: {euro(grading)} von {euro(costs.cap_today)} $</p>
+    {#if generation > 0}<p class="muted">Erzeugung heute: {euro(generation)} $</p>{/if}
   {/if}
 </div>
 
