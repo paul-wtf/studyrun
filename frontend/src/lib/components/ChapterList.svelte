@@ -10,7 +10,8 @@
     generating: 'Wird erzeugt',
     verifying: 'Wird geprüft',
     ready: 'Fertig',
-    failed: 'Fehlgeschlagen'
+    failed: 'Fehlgeschlagen',
+    skipped: 'Übersprungen'
   };
 
   let { moduleId, onchange }: { moduleId: number; onchange?: () => void } = $props();
@@ -41,9 +42,9 @@
     if (alive && working) timer = setTimeout(load, POLL_MS);
   }
 
-  async function retry(id: number) {
+  async function act(id: number, action: 'retry' | 'skip') {
     try {
-      await api.post(`/api/chapters/${id}/retry`);
+      await api.post(`/api/chapters/${id}/${action}`);
     } catch (e) {
       if (e instanceof SessionExpiredError) return;
       error = errorText(e);
@@ -76,9 +77,14 @@
       </div>
       <p class="muted">Seiten {c.first_page}–{c.last_page}{c.status === 'ready' ? `, ${c.active_items} Aufgaben` : ''}</p>
       {#if c.waiting_reason}<p class="muted">{c.waiting_reason}</p>{/if}
-      {#if c.status === 'failed'}
-        {#if c.error}<p class="error">{c.error}</p>{/if}
-        <button type="button" onclick={() => retry(c.id)}>Neu versuchen</button>
+      {#if c.status === 'failed' && c.error}<p class="error">{c.error}</p>{/if}
+      {#if c.status === 'failed' || c.status === 'pending'}
+        <div class="actions">
+          {#if c.status === 'failed'}
+            <button type="button" onclick={() => act(c.id, 'retry')}>Neu versuchen</button>
+          {/if}
+          <button type="button" onclick={() => act(c.id, 'skip')}>Kapitel überspringen</button>
+        </div>
       {/if}
     </div>
   {/each}
@@ -89,5 +95,6 @@
   .status { font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
   .status.ready { color: var(--good); }
   .status.failed { color: var(--bad); }
+  .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .card :global(p) { margin-bottom: 0; }
 </style>

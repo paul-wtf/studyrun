@@ -124,6 +124,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chapters/{chapter_id}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skip Chapter */
+        post: operations["skip_chapter_api_chapters__chapter_id__skip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/current": {
         parameters: {
             query?: never;
@@ -358,6 +375,11 @@ export interface components {
              * @default 0
              */
             failed: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
         };
         /** ChapterOut */
         ChapterOut: {
@@ -385,7 +407,7 @@ export interface components {
          * ChapterStatus
          * @enum {string}
          */
-        ChapterStatus: "pending" | "generating" | "verifying" | "ready" | "failed";
+        ChapterStatus: "pending" | "generating" | "verifying" | "ready" | "failed" | "skipped";
         /** ChapterViewOut */
         ChapterViewOut: {
             /** Id */
@@ -893,6 +915,37 @@ export interface operations {
         };
     };
     retry_chapter_api_chapters__chapter_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chapter_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skip_chapter_api_chapters__chapter_id__skip_post: {
         parameters: {
             query?: never;
             header?: never;

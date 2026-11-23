@@ -75,4 +75,26 @@ describe('ChapterList', () => {
     await vi.waitFor(() => expect(screen.queryByText('Zeitüberschreitung')).not.toBeInTheDocument());
     expect(calls.some((c) => c.path === '/api/chapters/7/retry' && c.method === 'POST')).toBe(true);
   });
+
+  it('skips a failed or pending chapter and shows skipped chapters', async () => {
+    let skipped = false;
+    const { calls } = mockApi({
+      'GET /api/modules/2/chapters': () => [
+        ch({ id: 7, status: skipped ? 'skipped' : 'failed', error: skipped ? null : 'Keine gültigen Fragen erzeugt' }),
+        ch({ id: 8, status: 'pending' }),
+        ch({ id: 9, status: 'ready' })
+      ],
+      'POST /api/chapters/7/skip': () => {
+        skipped = true;
+        return ch({ id: 7, status: 'skipped' });
+      }
+    });
+    render(ChapterList, { moduleId: 2 });
+    await screen.findByText('Keine gültigen Fragen erzeugt');
+    expect(screen.getAllByRole('button', { name: 'Kapitel überspringen' })).toHaveLength(2);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Kapitel überspringen' })[0]);
+    expect(await screen.findByText('Übersprungen')).toBeInTheDocument();
+    expect(calls.some((c) => c.path === '/api/chapters/7/skip' && c.method === 'POST')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Kapitel überspringen' })).toHaveLength(1);
+  });
 });
