@@ -5,9 +5,9 @@
   import ChapterList from '#lib/components/ChapterList.svelte';
   import UploadBooklet from '#lib/components/UploadBooklet.svelte';
 
-  import type { Module } from '#lib/api/models.ts';
+  import type { BookletStatus, Module } from '#lib/api/models.ts';
 
-  const STATUS: Record<string, string> = { processing: 'In Arbeit', ready: 'Fertig', failed: 'Fehlgeschlagen' };
+  const STATUS: Record<BookletStatus, string> = { processing: 'In Arbeit', ready: 'Fertig', failed: 'Fehlgeschlagen' };
 
   const id = Number(page.params.id);
   let module = $state<Module | null>(null);

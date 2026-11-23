@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import FreeQuestion from './FreeQuestion.svelte';
-import { itemEntry } from './fixtures';
+import { freeEntry } from './fixtures';
 import { mockApi } from '#lib/test/mockApi.ts';
 
-const entry = itemEntry('free', { prompt: 'Erkläre die Zelle.' });
+const entry = freeEntry({ prompt: 'Erkläre die Zelle.' });
 
 describe('FreeQuestion', () => {
   afterEach(() => vi.unstubAllGlobals());

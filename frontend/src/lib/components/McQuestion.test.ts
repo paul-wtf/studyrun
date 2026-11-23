@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import McQuestion from './McQuestion.svelte';
-import { itemEntry } from './fixtures';
+import { mcEntry } from './fixtures';
 import { mockApi } from '#lib/test/mockApi.ts';
 
-const entry = itemEntry('mc', { prompt: 'Welche Farbe?', options: ['Rot', 'Grün', 'Blau'] });
+const entry = mcEntry({ prompt: 'Welche Farbe?', options: ['Rot', 'Grün', 'Blau'] });
 
 describe('McQuestion', () => {
   afterEach(() => vi.unstubAllGlobals());

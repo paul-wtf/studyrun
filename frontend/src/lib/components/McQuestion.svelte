@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, errorText, isStale } from '#lib/api/client.ts';
-  import type { ItemEntry, ObjectiveResult } from '#lib/api/types.ts';
+  import type { McEntry, ObjectiveResult } from '#lib/api/models.ts';
   import Feedback from './Feedback.svelte';
 
   let {
@@ -8,7 +8,7 @@
     entry,
     onDone,
     onStale
-  }: { runId: number; entry: ItemEntry; onDone: () => void; onStale?: () => void } = $props();
+  }: { runId: number; entry: McEntry; onDone: () => void; onStale?: () => void } = $props();
   let result = $state<ObjectiveResult | null>(null);
   let chosen = $state<number | null>(null);
   let busy = $state(false);

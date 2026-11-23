@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RunSummaryData } from '#lib/api/types.ts';
+  import type { RunSummaryData } from '#lib/api/models.ts';
 
   let { summary }: { summary: RunSummaryData } = $props();
 </script>

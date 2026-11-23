@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, errorText, isStale } from '#lib/api/client.ts';
-  import type { IntroEntry } from '#lib/api/types.ts';
+  import type { IntroEntry } from '#lib/api/models.ts';
 
   let {
     runId,
@@ -35,7 +35,7 @@
   {#if entry.chapter.concepts.length}
     <ul>
       {#each entry.chapter.concepts as concept}
-        <li>{concept}</li>
+        <li><strong>{concept.term}</strong>: {concept.explanation}</li>
       {/each}
     </ul>
   {/if}

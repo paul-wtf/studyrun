@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, errorText } from '#lib/api/client.ts';
-  import type { FreeResult, ObjectiveResult } from '#lib/api/types.ts';
+  import type { FreeResult, ObjectiveResult } from '#lib/api/models.ts';
 
   let {
     itemId,

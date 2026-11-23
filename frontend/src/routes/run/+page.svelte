@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
-  import type { Run, RunSummaryData } from '#lib/api/types.ts';
+  import type { Run, RunSummaryData } from '#lib/api/models.ts';
+  import { isCloze, isFree, isMc, isTrueFalse } from '#lib/api/entries.ts';
   import IntroCard from '#lib/components/IntroCard.svelte';
   import McQuestion from '#lib/components/McQuestion.svelte';
   import TrueFalseQuestion from '#lib/components/TrueFalseQuestion.svelte';
@@ -69,7 +70,7 @@
     <p>Es ist nichts fällig und kein neues Kapitel bereit. Schau bei den Modulen nach.</p>
     <a class="btn primary block" href="/modules">Zu den Modulen</a>
   </div>
-{:else if run && current}
+{:else if run && run.id !== null && current}
   <div class="top">
     <div
       class="bar"
@@ -87,13 +88,13 @@
   {#key `${run.id}-${current.n}`}
     {#if current.type === 'intro'}
       <IntroCard runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
-    {:else if current.item.kind === 'mc'}
+    {:else if isMc(current)}
       <McQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
-    {:else if current.item.kind === 'true_false'}
+    {:else if isTrueFalse(current)}
       <TrueFalseQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
-    {:else if current.item.kind === 'cloze'}
+    {:else if isCloze(current)}
       <ClozeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
-    {:else}
+    {:else if isFree(current)}
       <FreeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {/if}
   {/key}

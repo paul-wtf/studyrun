@@ -12,7 +12,7 @@ const RUN = {
       type: 'intro',
       done: false,
       grading_unavailable: false,
-      chapter: { id: 5, title: 'Die Zelle', summary: 'Bausteine.', concepts: ['Kern'], source: '/p#page=1' }
+      chapter: { id: 5, title: 'Die Zelle', summary: 'Bausteine.', concepts: [{ term: 'Kern', explanation: 'Steuert die Zelle.' }], source: '/p#page=1' }
     },
     {
       n: 1,

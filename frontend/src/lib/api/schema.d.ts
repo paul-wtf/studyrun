@@ -324,8 +324,11 @@ export interface components {
             filename: string;
             /** Page Count */
             page_count: number;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "processing" | "ready" | "failed";
             chapters: components["schemas"]["ChapterCounts"];
         };
         /** ChapterCounts */
@@ -383,6 +386,40 @@ export interface components {
          * @enum {string}
          */
         ChapterStatus: "pending" | "generating" | "verifying" | "ready" | "failed";
+        /** ChapterViewOut */
+        ChapterViewOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string | null;
+            /** Concepts */
+            concepts: components["schemas"]["Concept"][];
+            /** Source */
+            source: string;
+        };
+        /** ClozeViewOut */
+        ClozeViewOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "cloze";
+            /** Text */
+            text: string;
+            /** Source */
+            source: string;
+        };
+        /** Concept */
+        Concept: {
+            /** Term */
+            term: string;
+            /** Explanation */
+            explanation: string;
+        };
         /** CostsOut */
         CostsOut: {
             today: components["schemas"]["Period"];
@@ -395,6 +432,18 @@ export interface components {
             generation_budget_today: number;
             /** Generation Remaining Today */
             generation_remaining_today: number;
+        };
+        /** CurrentRunOut */
+        CurrentRunOut: {
+            run: components["schemas"]["RunOut"] | null;
+        };
+        /** DoneOut */
+        DoneOut: {
+            /**
+             * Done
+             * @constant
+             */
+            done: true;
         };
         /** FlagIn */
         FlagIn: {
@@ -422,10 +471,86 @@ export interface components {
          * @enum {string}
          */
         FlagReason: "wrong" | "not_in_course" | "unclear";
+        /** FlaggedOut */
+        FlaggedOut: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "flagged";
+        };
+        /** FreeResultOut */
+        FreeResultOut: {
+            /** Score */
+            score: number;
+            /** Feedback */
+            feedback: string;
+            /** Missing */
+            missing: string[];
+            /** Model Answer */
+            model_answer: string;
+        };
+        /** FreeViewOut */
+        FreeViewOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "free";
+            /** Prompt */
+            prompt: string;
+            /** Source */
+            source: string;
+        };
+        /** GradingUnavailableOut */
+        GradingUnavailableOut: {
+            /**
+             * Grading Unavailable
+             * @constant
+             */
+            grading_unavailable: true;
+            /** Reason */
+            reason: string;
+            /** Model Answer */
+            model_answer: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IntroEntryOut */
+        IntroEntryOut: {
+            /** N */
+            n: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "intro";
+            /** Done */
+            done: boolean;
+            /** Grading Unavailable */
+            grading_unavailable: boolean;
+            chapter: components["schemas"]["ChapterViewOut"];
+        };
+        /** ItemEntryOut */
+        ItemEntryOut: {
+            /** N */
+            n: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "item";
+            /** Done */
+            done: boolean;
+            /** Grading Unavailable */
+            grading_unavailable: boolean;
+            /** Item */
+            item: components["schemas"]["McViewOut"] | components["schemas"]["TrueFalseViewOut"] | components["schemas"]["ClozeViewOut"] | components["schemas"]["FreeViewOut"];
         };
         /** ItemFix */
         ItemFix: {
@@ -441,6 +566,22 @@ export interface components {
          * @enum {string}
          */
         ItemKind: "mc" | "true_false" | "cloze" | "free";
+        /** McViewOut */
+        McViewOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "mc";
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Source */
+            source: string;
+        };
         /** ModuleCreate */
         ModuleCreate: {
             /** Name */
@@ -464,6 +605,15 @@ export interface components {
             /** Position */
             position?: number | null;
         };
+        /** ObjectiveResultOut */
+        ObjectiveResultOut: {
+            /** Correct */
+            correct: boolean;
+            /** Expected */
+            expected: string;
+            /** Explanation */
+            explanation: string;
+        };
         /** Period */
         Period: {
             /** Total */
@@ -473,6 +623,24 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: number | null;
+            /** Entries */
+            entries: (components["schemas"]["IntroEntryOut"] | components["schemas"]["ItemEntryOut"])[];
+        };
+        /** RunSummaryOut */
+        RunSummaryOut: {
+            /** Answered */
+            answered: number;
+            /** Correct */
+            correct: number;
+            /** Chapters Introduced */
+            chapters_introduced: string[];
+            /** Due Tomorrow */
+            due_tomorrow: number;
+        };
         /** SelfRateIn */
         SelfRateIn: {
             /**
@@ -480,6 +648,20 @@ export interface components {
              * @enum {string}
              */
             rating: "again" | "good";
+        };
+        /** TrueFalseViewOut */
+        TrueFalseViewOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "true_false";
+            /** Statement */
+            statement: string;
+            /** Source */
+            source: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -756,9 +938,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CurrentRunOut"];
                 };
             };
         };
@@ -778,9 +958,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RunOut"];
                 };
             };
         };
@@ -803,9 +981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: boolean;
-                    };
+                    "application/json": components["schemas"]["DoneOut"];
                 };
             };
             /** @description Validation Error */
@@ -841,9 +1017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectiveResultOut"] | components["schemas"]["FreeResultOut"] | components["schemas"]["GradingUnavailableOut"];
                 };
             };
             /** @description Validation Error */
@@ -879,9 +1053,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: boolean;
-                    };
+                    "application/json": components["schemas"]["DoneOut"];
                 };
             };
             /** @description Validation Error */
@@ -912,9 +1084,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RunSummaryOut"];
                 };
             };
             /** @description Validation Error */
@@ -949,9 +1119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["FlaggedOut"];
                 };
             };
             /** @description Validation Error */

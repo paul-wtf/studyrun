@@ -13,7 +13,10 @@ const entry = {
     id: 5,
     title: 'Die Zelle',
     summary: 'Bausteine des Lebens.',
-    concepts: ['Zellkern', 'Membran'],
+    concepts: [
+      { term: 'Zellkern', explanation: 'Enthält das Erbgut.' },
+      { term: 'Membran', explanation: 'Umhüllt die Zelle.' }
+    ],
     source: '/api/booklets/3/pdf#page=4'
   }
 };
