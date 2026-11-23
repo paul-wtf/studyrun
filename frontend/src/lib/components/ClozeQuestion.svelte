@@ -24,7 +24,10 @@
         answer: { text }
       });
     } catch (e) {
-      if (isStale(e) && onStale) return onStale();
+      if (isStale(e) && onStale) {
+        busy = false;
+        return onStale();
+      }
       error = errorText(e);
       busy = false;
     }

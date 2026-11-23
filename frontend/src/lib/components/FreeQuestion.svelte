@@ -27,7 +27,10 @@
       if ('grading_unavailable' in res) unavailable = res;
       else result = res;
     } catch (e) {
-      if (isStale(e) && onStale) return onStale();
+      if (isStale(e) && onStale) {
+        busy = false;
+        return onStale();
+      }
       error = errorText(e);
       busy = false;
     }
@@ -39,7 +42,10 @@
       await api.post(`/api/runs/${runId}/entries/${entry.n}/self-rate`, { rating });
       onDone();
     } catch (e) {
-      if (isStale(e) && onStale) return onStale();
+      if (isStale(e) && onStale) {
+        busy = false;
+        return onStale();
+      }
       error = errorText(e);
     }
   }

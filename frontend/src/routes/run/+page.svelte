@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import type { Run, RunSummaryData } from '#lib/api/types.ts';
-    import IntroCard from '#lib/components/IntroCard.svelte';
+  import IntroCard from '#lib/components/IntroCard.svelte';
   import McQuestion from '#lib/components/McQuestion.svelte';
   import TrueFalseQuestion from '#lib/components/TrueFalseQuestion.svelte';
   import ClozeQuestion from '#lib/components/ClozeQuestion.svelte';
@@ -84,7 +84,7 @@
     <button class="quit" onclick={finish}>Beenden</button>
   </div>
   {#if note}<p class="muted" role="status">{note}</p>{/if}
-  {#key current.n}
+  {#key `${run.id}-${current.n}`}
     {#if current.type === 'intro'}
       <IntroCard runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {:else if current.item.kind === 'mc'}

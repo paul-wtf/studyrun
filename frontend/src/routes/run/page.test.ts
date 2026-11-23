@@ -83,4 +83,30 @@ describe('run page', () => {
       '/api/runs'
     ]);
   });
+
+  it('is interactive again when the reloaded run starts at the same entry number', async () => {
+    const other = {
+      id: 2,
+      entries: [
+        { ...RUN.entries[1], n: 0 },
+        { ...RUN.entries[1], n: 1 }
+      ]
+    };
+    const { fetchMock } = mockApi({
+      'POST /api/runs': other,
+      'POST /api/runs/2/entries/0/answer': { correct: true, expected: 'Wahr', explanation: 'Ja.' }
+    });
+    const json = (body: unknown, status: number) =>
+      new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    fetchMock.mockImplementationOnce(async () => json({ id: 1, entries: [{ ...RUN.entries[1], n: 0 }] }, 200));
+    fetchMock.mockImplementationOnce(async () => json({ detail: 'schon beantwortet' }, 409));
+    render(Page);
+    await userEvent.click(await screen.findByRole('button', { name: 'Wahr' }));
+    await screen.findByText(/auf einem anderen Gerät beantwortet/);
+    const wahr = screen.getByRole('button', { name: 'Wahr' });
+    expect(wahr).toBeEnabled();
+    await userEvent.click(wahr);
+    expect(await screen.findByText('Richtig')).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map((c) => c[0]).at(-1)).toBe('/api/runs/2/entries/0/answer');
+  });
 });
