@@ -10,6 +10,7 @@ from studyrun.models.db import (
     ItemKind,
     ItemStatus,
     Module,
+    ReviewLog,
     ReviewState,
 )
 
@@ -41,6 +42,7 @@ async def _chapter_with_item(session, payload=None):
     session.add(item)
     await session.flush()
     session.add(ReviewState(item_id=item.id, card={"state": 1}, due=datetime.now(UTC)))
+    session.add(ReviewLog(item_id=item.id, rating=3))
     await session.flush()
     return booklet, chapter, item
 
@@ -50,7 +52,7 @@ async def test_chapter_cascade(db_session):
 
     await db_session.execute(delete(Booklet).where(Booklet.id == booklet.id))
 
-    for model in (Chapter, Item, ReviewState):
+    for model in (Chapter, Item, ReviewState, ReviewLog):
         assert await db_session.scalar(select(func.count()).select_from(model)) == 0
 
 

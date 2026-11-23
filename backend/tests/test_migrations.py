@@ -5,9 +5,12 @@ from pathlib import Path
 import asyncpg
 import pytest
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from studyrun.models.db import Base
 
@@ -104,27 +107,29 @@ async def test_every_migration_downgrades_and_upgrades_again(scratch):
         assert await conn.fetchval("SELECT version_num FROM alembic_version") == rev
 
 
-async def test_upgrade_matches_metadata(scratch):
+async def test_upgrade_matches_metadata(scratch, test_database):
     conn, schema = scratch
     await conn.execute(_sql("upgrade", "head"))
-    rows = await conn.fetch(
-        "SELECT table_name, column_name, is_nullable FROM information_schema.columns "
-        "WHERE table_schema = $1 AND table_name <> 'alembic_version'",
-        schema,
-    )
-    migrated = {(r["table_name"], r["column_name"], r["is_nullable"] == "YES") for r in rows}
-    declared = {
-        (table.name, column.name, column.nullable)
-        for table in Base.metadata.tables.values()
-        for column in table.columns
-    }
-    assert migrated == declared
 
-    indexes = await conn.fetch(
-        "SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename <> 'alembic_version'",
-        schema,
+    engine = create_async_engine(
+        test_database, connect_args={"server_settings": {"search_path": schema}}
     )
-    declared_indexes = {
-        index.name for table in Base.metadata.tables.values() for index in table.indexes
-    }
-    assert declared_indexes <= {r["indexname"] for r in indexes}
+
+    def diff(sync_conn):
+        context = MigrationContext.configure(
+            sync_conn,
+            opts={
+                "compare_type": True,
+                "compare_server_default": True,
+                "include_object": lambda obj, name, type_, reflected, compare_to: (
+                    name != "alembic_version"
+                ),
+            },
+        )
+        return compare_metadata(context, Base.metadata)
+
+    try:
+        async with engine.connect() as sync_side:
+            assert await sync_side.run_sync(diff) == []
+    finally:
+        await engine.dispose()
