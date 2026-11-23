@@ -1,0 +1,15 @@
+studyrun has been deployed.
+{{- if .Values.ingress.enabled }}
+
+Application URL:
+  {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+
+No Ingress configured. Access via port-forward:
+  kubectl port-forward svc/{{ include "studyrun.fullname" . }}-frontend 8080:80
+{{- end }}
+{{- if .Values.secrets.existingSecret }}
+
+Using existing Secret: {{ .Values.secrets.existingSecret }}
+It must contain STUDYRUN_DATABASE_URL and STUDYRUN_ANTHROPIC_API_KEY.
+{{- end }}

@@ -1,0 +1,73 @@
+backend:
+  image:
+    repository: ghcr.io/paul-wtf/studyrun-backend
+    # -- Defaults to Chart.appVersion
+    tag: ""
+    pullPolicy: IfNotPresent
+  # -- The in-process worker must not run twice, so this stays at 1
+  # and the Deployment uses the Recreate strategy.
+  replicas: 1
+  # -- Uploads are read into memory before they are written to the database
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+frontend:
+  image:
+    repository: ghcr.io/paul-wtf/studyrun-frontend
+    # -- Defaults to Chart.appVersion
+    tag: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -- Optional Ingress: /api goes to the backend, everything else to the frontend.
+# Off by default; production routing lives outside this chart.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+config:
+  logLevel: INFO
+  timezone: Europe/Berlin
+  # -- Largest booklet upload in MB. The Ingress sets nginx's proxy-body-size
+  # to match; other ingress controllers need their own body limit raised.
+  uploadMaxMegabytes: 50
+  # -- Further STUDYRUN_* settings as a name/value list, e.g. budgets and models
+  extraEnv: []
+  #  - name: STUDYRUN_GENERATION_DAILY_BUDGET_USD
+  #    value: "10.00"
+
+secrets:
+  databaseUrl: ""
+  anthropicApiKey: ""
+  # -- Use an existing Secret instead of creating one. It must contain keys:
+  # STUDYRUN_DATABASE_URL, STUDYRUN_ANTHROPIC_API_KEY
+  existingSecret: ""
+
+# -- Alembic migrations (pre-install/pre-upgrade hook)
+migration:
+  enabled: true
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
