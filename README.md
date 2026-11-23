@@ -75,6 +75,10 @@ All settings are environment variables with the prefix `STUDYRUN_`.
 | `STUDYRUN_CHAPTER_WINDOW_PAGES` | `15` | Window size for split chapters |
 | `STUDYRUN_UPLOAD_MAX_BYTES` | `52428800` | Largest accepted upload (50 MiB) |
 
+The caps above only count calls studyrun has recorded. When a batch submission times out
+and is retried, the first attempt can still have created a batch that studyrun never
+records, so set a spend limit in the Anthropic Console as the backstop.
+
 ## Deployment
 
 Releases publish `ghcr.io/paul-wtf/studyrun-backend` and `ghcr.io/paul-wtf/studyrun-frontend`
