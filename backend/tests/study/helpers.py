@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from fsrs import Card, State
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,8 +68,11 @@ async def make_item(
     *,
     status: ItemStatus = ItemStatus.active,
     due: datetime | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> Item:
-    item = Item(chapter_id=chapter.id, kind=kind, payload={}, source_page=1, status=status)
+    item = Item(
+        chapter_id=chapter.id, kind=kind, payload=payload or {}, source_page=1, status=status
+    )
     session.add(item)
     await session.flush()
     if due is not None:
