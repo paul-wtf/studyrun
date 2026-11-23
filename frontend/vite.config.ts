@@ -19,7 +19,7 @@ export default defineConfig({
   resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
   server: {
     port: 5173,
-    proxy: { '/api': 'http://127.0.0.1:8000' }
+    proxy: { '/api': 'http://127.0.0.1:8080' }
   },
   test: {
     globals: true,
