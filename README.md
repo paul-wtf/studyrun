@@ -75,8 +75,9 @@ All settings are environment variables with the prefix `STUDYRUN_`.
 ## Deployment
 
 Releases publish `ghcr.io/paul-wtf/studyrun-backend` and `ghcr.io/paul-wtf/studyrun-frontend`
-and the chart at `https://paul-wtf.github.io/studyrun`. The chart expects a Secret
-(`secrets.existingSecret`) with `STUDYRUN_DATABASE_URL` and `STUDYRUN_ANTHROPIC_API_KEY`.
+and the chart at `https://paul-wtf.github.io/studyrun`. The chart does not create credentials: `secrets.existingSecret` is required and must name a
+Secret with `STUDYRUN_DATABASE_URL` and `STUDYRUN_ANTHROPIC_API_KEY` (the migration hook
+runs before release resources exist, so the Secret has to be there already).
 The backend runs as a single replica with the `Recreate` strategy because the worker must
 not run twice. The Ingress is off by default: route `/api` to the backend service (port
 8080) and everything else to the frontend service (port 80).

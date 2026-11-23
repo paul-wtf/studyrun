@@ -57,13 +57,10 @@ app.kubernetes.io/component: frontend
 {{- end }}
 
 {{/*
-Name of the Secret to use. Returns existingSecret if set, otherwise
-the generated name.
+Name of the Secret holding STUDYRUN_DATABASE_URL and STUDYRUN_ANTHROPIC_API_KEY.
+The chart does not create it: the migration hook runs before regular release
+resources exist, so the Secret has to be there already.
 */}}
 {{- define "studyrun.secretName" -}}
-{{- if .Values.secrets.existingSecret }}
-{{- .Values.secrets.existingSecret }}
-{{- else }}
-{{- include "studyrun.fullname" . }}
-{{- end }}
+{{- required "secrets.existingSecret is required: name a Secret with STUDYRUN_DATABASE_URL and STUDYRUN_ANTHROPIC_API_KEY" .Values.secrets.existingSecret }}
 {{- end }}
