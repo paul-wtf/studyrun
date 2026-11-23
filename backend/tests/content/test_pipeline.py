@@ -1,5 +1,6 @@
 import base64
 import io
+import random
 from datetime import datetime
 from decimal import Decimal
 
@@ -28,8 +29,8 @@ async def _reload(session, chapter_id: int) -> Chapter:
     return chapter
 
 
-async def _advance(session, llm, chapter_id: int) -> Chapter:
-    await advance_chapter(session, llm, chapter_id, NOW)
+async def _advance(session, llm, chapter_id: int, rng: random.Random | None = None) -> Chapter:
+    await advance_chapter(session, llm, chapter_id, NOW, rng=rng)
     return await _reload(session, chapter_id)
 
 
@@ -124,6 +125,27 @@ def test_generation_asks_about_learnable_content():
     assert "no_content" in ChapterContent.model_json_schema()["properties"]
     assert "no_content" in prompts.GENERATION_SYSTEM
     assert "Inhaltsverzeichnis" in prompts.GENERATION_SYSTEM
+
+
+async def test_mc_options_are_shuffled_once_when_stored(db_session):
+    chapter = await seed_pending(db_session)
+    options = ["Blau", "Grün", "Rot", "Gelb"]
+    generated = [mc(options=options, answer_index=1, prompt=f"Frage {n}") for n in range(6)]
+    llm = FakeBatchLLM()
+    llm.queue(f"gen-{chapter.id}", content(generated))
+    llm.queue(f"ver-{chapter.id}", verdicts(*[True] * 6))
+    for _ in range(3):
+        chapter = await _advance(db_session, llm, chapter.id, rng=random.Random(7))
+    assert chapter.status == ChapterStatus.ready
+    stored = (
+        await db_session.scalars(
+            select(Item).where(Item.chapter_id == chapter.id).order_by(Item.id)
+        )
+    ).all()
+    assert all(i.payload["options"][i.payload["answer_index"]] == "Grün" for i in stored)
+    assert all(sorted(i.payload["options"]) == sorted(options) for i in stored)
+    assert len({i.payload["answer_index"] for i in stored}) > 1
+    assert "Gelb" in llm.submits[1].content[1]["text"]
 
 
 async def test_stays_while_batch_processing(db_session):

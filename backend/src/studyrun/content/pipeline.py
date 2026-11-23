@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 from datetime import datetime
 from typing import Any
 
@@ -12,7 +13,7 @@ from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.llm import BatchLLM, LLMUnavailable, pdf_block
 from studyrun.content import prompts
 from studyrun.content.pdf import extract_slice
-from studyrun.content.schemas import ChapterContent, ItemUnion, Verification
+from studyrun.content.schemas import ChapterContent, ItemUnion, McItem, Verification
 from studyrun.content.validate import validate_items
 from studyrun.models.db import Booklet, Chapter, ChapterStatus, Feature, Item, ItemKind, ItemStatus
 
@@ -157,8 +158,18 @@ def _passed(verification: Verification) -> set[int]:
     return {index for index, ok in verdicts.items() if ok}
 
 
+def _stored_payload(item: ItemUnion, rng: random.Random) -> dict[str, Any]:
+    payload = item.model_dump(mode="json", exclude={"kind", "source_page"})
+    if isinstance(item, McItem):
+        order = list(range(len(item.options)))
+        rng.shuffle(order)
+        payload["options"] = [item.options[i] for i in order]
+        payload["answer_index"] = order.index(item.answer_index)
+    return payload
+
+
 async def _collect_verification(
-    session: AsyncSession, llm: BatchLLM, chapter: Chapter, now: datetime
+    session: AsyncSession, llm: BatchLLM, chapter: Chapter, now: datetime, rng: random.Random
 ) -> None:
     if chapter.batch_id is None:
         await _submit_verification(session, llm, chapter, now)
@@ -189,7 +200,7 @@ async def _collect_verification(
                 Item(
                     chapter_id=chapter.id,
                     kind=ItemKind(item.kind),
-                    payload=item.model_dump(mode="json", exclude={"kind", "source_page"}),
+                    payload=_stored_payload(item, rng),
                     source_page=item.source_page,
                     status=ItemStatus.active,
                 )
@@ -205,19 +216,26 @@ async def _collect_verification(
 _STEPS = {
     ChapterStatus.pending: _submit_generation,
     ChapterStatus.generating: _collect_generation,
-    ChapterStatus.verifying: _collect_verification,
 }
 
 
 async def advance_chapter(
-    session: AsyncSession, llm: BatchLLM, chapter_id: int, now: datetime
+    session: AsyncSession,
+    llm: BatchLLM,
+    chapter_id: int,
+    now: datetime,
+    *,
+    rng: random.Random | None = None,
 ) -> None:
     chapter = await session.get(Chapter, chapter_id)
-    if chapter is None or chapter.status not in _STEPS:
+    if chapter is None or chapter.status not in (*_STEPS, ChapterStatus.verifying):
         return
     status = chapter.status
     try:
-        await _STEPS[status](session, llm, chapter, now)
+        if status == ChapterStatus.verifying:
+            await _collect_verification(session, llm, chapter, now, rng or random.Random())
+        else:
+            await _STEPS[status](session, llm, chapter, now)
     except Exception as error:
         log.exception("chapter %s failed while %s", chapter_id, status.value)
         await session.refresh(chapter)
