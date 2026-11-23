@@ -54,4 +54,37 @@ describe('api client', () => {
     expect(err.message).toBe('Nicht gefunden');
     expect(get(sessionExpired)).toBe(false);
   });
+
+  it('does not follow redirects and treats one as an expired session', async () => {
+    const res = new Response(null, { status: 200 });
+    Object.defineProperty(res, 'type', { value: 'opaqueredirect' });
+    Object.defineProperty(res, 'status', { value: 0 });
+    const fetchMock = vi.fn(async (_path: string, _init?: RequestInit) => res);
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(api.get('/api/costs')).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(fetchMock.mock.calls[0][1]?.redirect).toBe('manual');
+    expect(get(sessionExpired)).toBe(true);
+  });
+
+  it('reports a network failure in German', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      })
+    );
+    const err = (await api.get('/api/costs').catch((e: unknown) => e)) as Error;
+    expect(err.message).toBe('Keine Verbindung zum Server.');
+    expect(get(sessionExpired)).toBe(false);
+  });
+
+  it('describes an error without detail in German', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>Bad Gateway</html>', { status: 502, headers: { 'content-type': 'text/html' } }))
+    );
+    const err = (await api.get('/api/costs').catch((e: unknown) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.message).toBe('Der Server hat mit Fehler 502 geantwortet.');
+  });
 });

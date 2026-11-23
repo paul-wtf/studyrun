@@ -7,7 +7,7 @@ export class ApiError extends Error {
     detail?: string,
     public body?: unknown
   ) {
-    super(detail ?? `API ${status} for ${path}`);
+    super(detail ?? `Der Server hat mit Fehler ${status} geantwortet.`);
   }
 }
 
@@ -24,12 +24,19 @@ function expire(): never {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const form = body instanceof FormData;
-  const res = await fetch(path, {
-    method,
-    credentials: 'include',
-    headers: body === undefined || form ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : form ? body : JSON.stringify(body)
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'include',
+      redirect: 'manual',
+      headers: body === undefined || form ? undefined : { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body)
+    });
+  } catch (e) {
+    if (e instanceof TypeError) throw new Error('Keine Verbindung zum Server.');
+    throw e;
+  }
   if (res.redirected || res.type === 'opaqueredirect' || res.status === 401) expire();
   const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
   if (!res.ok) {
