@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import (
     APIRouter,
@@ -13,7 +13,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import CursorResult, and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.config import Settings
@@ -152,17 +152,32 @@ async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
     return await _chapter_out(session, chapter)
 
 
+_SKIPPABLE = or_(
+    Chapter.status.in_([ChapterStatus.pending, ChapterStatus.failed]),
+    and_(Chapter.status == ChapterStatus.verifying, Chapter.batch_id.is_(None)),
+)
+
+
 @router.post("/chapters/{chapter_id}/skip")
 async def skip_chapter(chapter_id: int, session: Session) -> ChapterOut:
-    chapter = await _get_chapter(session, chapter_id)
-    if chapter.status not in (ChapterStatus.failed, ChapterStatus.pending):
+    skipped = await session.execute(
+        update(Chapter)
+        .where(Chapter.id == chapter_id, _SKIPPABLE)
+        .values(
+            status=ChapterStatus.skipped,
+            error=None,
+            batch_id=None,
+            draft=None,
+            waiting_reason=None,
+            waiting_since=None,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    chapter = await session.get(Chapter, chapter_id, populate_existing=True)
+    if chapter is None:
+        raise HTTPException(404, "Kapitel nicht gefunden")
+    if cast(CursorResult[Any], skipped).rowcount == 0:
         raise HTTPException(
             409, "Nur fehlgeschlagene oder wartende Kapitel können übersprungen werden."
         )
-    chapter.status = ChapterStatus.skipped
-    chapter.error = None
-    chapter.batch_id = None
-    chapter.draft = None
-    chapter.waiting_reason = None
-    chapter.waiting_since = None
     return await _chapter_out(session, chapter)

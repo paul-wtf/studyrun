@@ -286,6 +286,18 @@ async def test_skip_chapter(api, db_session, status):
     )
 
 
+async def test_skip_a_verifying_chapter_without_a_batch(api, db_session):
+    client, _ = api
+    chapter = await _first_chapter(client, db_session)
+    chapter.status = ChapterStatus.verifying
+    chapter.draft = {"x": 1}
+    chapter.waiting_reason = "Prüfung wird erneut versucht"
+    await db_session.flush()
+    resp = await client.post(f"/api/chapters/{chapter.id}/skip")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "skipped"
+
+
 @pytest.mark.parametrize(
     "status",
     [ChapterStatus.ready, ChapterStatus.generating, ChapterStatus.verifying, ChapterStatus.skipped],
@@ -294,6 +306,7 @@ async def test_skip_conflicts_unless_failed_or_pending(api, db_session, status):
     client, _ = api
     chapter = await _first_chapter(client, db_session)
     chapter.status = status
+    chapter.batch_id = "b1" if status != ChapterStatus.skipped else None
     await db_session.flush()
     assert (await client.post(f"/api/chapters/{chapter.id}/skip")).status_code == 409
     assert (await client.post("/api/chapters/999/skip")).status_code == 404

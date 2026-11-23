@@ -228,7 +228,7 @@ async def advance_chapter(
     *,
     rng: random.Random | None = None,
 ) -> None:
-    chapter = await session.get(Chapter, chapter_id)
+    chapter = await session.get(Chapter, chapter_id, with_for_update=True)
     if chapter is None or chapter.status not in (*_STEPS, ChapterStatus.verifying):
         return
     status = chapter.status
