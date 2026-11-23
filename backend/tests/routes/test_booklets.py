@@ -3,6 +3,7 @@ from content.pdfs import build_pdf
 from sqlalchemy import event, select
 from sqlalchemy.engine import Engine
 
+from studyrun.content.schemas import ChapterContent, McItem
 from studyrun.deps import get_settings
 from studyrun.models.db import Chapter, ChapterStatus
 
@@ -160,6 +161,34 @@ async def test_retry_failed_chapter(api, db_session):
     assert chapter.draft is None
     assert chapter.waiting_reason is None
     assert chapter.waiting_since is None
+
+
+async def test_retry_keeps_a_draft_that_can_still_be_verified(api, db_session):
+    client, _ = api
+    chapter = await _first_chapter(client, db_session)
+    item = McItem(
+        kind="mc",
+        prompt="Welche Farbe hat der erfundene Testvogel?",
+        options=["Blau", "Grün", "Rot"],
+        answer_index=1,
+        explanation="Im Beispieltext ist der Vogel grün.",
+        source_page=1,
+    )
+    draft = ChapterContent(summary="Testvogel", concepts=[], items=[item]).model_dump(mode="json")
+    chapter.status = ChapterStatus.failed
+    chapter.error = "Der Batch ist abgelaufen."
+    chapter.batch_id = "b1"
+    chapter.draft = draft
+    await db_session.flush()
+
+    resp = await client.post(f"/api/chapters/{chapter.id}/retry")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "verifying"
+    await db_session.refresh(chapter)
+    assert chapter.status == ChapterStatus.verifying
+    assert chapter.draft == draft
+    assert chapter.batch_id is None
+    assert chapter.error is None
 
 
 async def test_retry_ready_chapter_conflicts(api, db_session):

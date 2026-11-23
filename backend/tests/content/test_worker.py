@@ -106,6 +106,22 @@ async def test_worker_skips_waiting_until_next_day(db_session, factory):
     assert refreshed.waiting_reason is None
 
 
+async def test_worker_retries_a_verification_submit_on_the_next_tick(db_session, factory):
+    module = await seed_module(db_session)
+    booklet = await seed_booklet(db_session, module)
+    chapter = await seed_chapter(
+        db_session,
+        booklet,
+        status=ChapterStatus.verifying,
+        draft=content([mc()]).model_dump(mode="json"),
+        waiting_reason="Prüfung wird erneut versucht",
+    )
+    llm = FakeBatchLLM()
+
+    await tick(factory, llm, Settings(), NOW)
+    assert [c.custom_id for c in llm.submits] == [f"ver-{chapter.id}"]
+
+
 async def test_restart_resumes_from_batch_id(db_session, factory):
     module = await seed_module(db_session)
     booklet = await seed_booklet(db_session, module)

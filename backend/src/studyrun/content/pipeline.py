@@ -4,12 +4,12 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.ai.budget import BudgetExceeded
-from studyrun.ai.llm import BatchLLM, pdf_block
+from studyrun.ai.llm import BatchLLM, LLMUnavailable, pdf_block
 from studyrun.content import prompts
 from studyrun.content.pdf import extract_slice
 from studyrun.content.schemas import ChapterContent, ItemUnion, Verification
@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 WAITING_FOR_BUDGET = "Tagesbudget für die Erzeugung erreicht"
 NO_VALID_ITEMS = "Keine gültigen Fragen erzeugt"
 NO_ITEMS_PASSED = "Keine Fragen haben die Prüfung bestanden"
+RETRYING_VERIFICATION = "Prüfung wird erneut versucht"
 
 _ITEMS: TypeAdapter[list[ItemUnion]] = TypeAdapter(list[ItemUnion])
 
@@ -51,6 +52,15 @@ def _fail(chapter: Chapter, message: str) -> None:
     chapter.batch_id = None
     chapter.waiting_reason = None
     chapter.waiting_since = None
+
+
+def verifiable(draft: dict[str, Any] | None) -> bool:
+    if draft is None:
+        return False
+    try:
+        return bool(ChapterContent.model_validate(draft).items)
+    except ValidationError:
+        return False
 
 
 def _draft(chapter: Chapter) -> dict[str, Any]:
@@ -98,6 +108,12 @@ async def _submit_verification(
         )
     except BudgetExceeded:
         _wait(chapter, now)
+        return
+    except LLMUnavailable as error:
+        log.warning("verification of chapter %s not submitted: %s", chapter.id, error.reason)
+        chapter.batch_id = None
+        chapter.waiting_reason = RETRYING_VERIFICATION
+        chapter.waiting_since = None
         return
     _submitted(chapter, ChapterStatus.verifying, batch_id)
 
@@ -159,6 +175,7 @@ async def _collect_verification(
     ]
     if not items:
         _fail(chapter, NO_ITEMS_PASSED)
+        chapter.draft = None
         return
     async with session.begin_nested():
         for item in items:

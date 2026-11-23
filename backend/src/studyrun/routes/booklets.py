@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 
 from studyrun.config import Settings
 from studyrun.content.pdf import BookletError, split_booklet
+from studyrun.content.pipeline import verifiable
 from studyrun.deps import get_settings
 from studyrun.models.db import Booklet, Chapter, ChapterStatus, Item, ItemStatus
 from studyrun.routes.modules import (
@@ -99,10 +100,13 @@ async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
         raise HTTPException(404, "Kapitel nicht gefunden")
     if chapter.status != ChapterStatus.failed:
         raise HTTPException(409, "Nur fehlgeschlagene Kapitel können neu gestartet werden.")
-    chapter.status = ChapterStatus.pending
+    if verifiable(chapter.draft):
+        chapter.status = ChapterStatus.verifying
+    else:
+        chapter.status = ChapterStatus.pending
+        chapter.draft = None
     chapter.error = None
     chapter.batch_id = None
-    chapter.draft = None
     chapter.waiting_reason = None
     chapter.waiting_since = None
     await session.flush()

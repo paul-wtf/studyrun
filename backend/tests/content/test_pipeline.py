@@ -177,6 +177,7 @@ async def test_all_rejected_fails(db_session):
     assert chapter.status == ChapterStatus.failed
     assert chapter.error == "Keine Fragen haben die Prüfung bestanden"
     assert chapter.batch_id is None
+    assert chapter.draft is None
     count = await db_session.scalar(select(func.count()).select_from(Item))
     assert count == 0
 
@@ -218,6 +219,37 @@ async def test_verification_waits_for_budget(db_session):
 
     chapter = await _advance(db_session, llm, chapter.id)
     assert chapter.status == ChapterStatus.ready
+
+
+async def test_verification_submit_error_keeps_the_draft(db_session):
+    chapter = await seed_pending(db_session)
+    llm = FakeBatchLLM()
+    llm.queue(f"gen-{chapter.id}", content([mc(), true_false()]))
+    llm.queue(f"ver-{chapter.id}", verdicts(True, True))
+    await _advance(db_session, llm, chapter.id)
+    llm.submit_errors += [
+        LLMUnavailable("Fehler der Claude-API: overloaded"),
+        LLMUnavailable("Fehler der Claude-API: overloaded"),
+    ]
+
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert chapter.status == ChapterStatus.verifying
+    assert chapter.batch_id is None
+    assert chapter.draft is not None and len(chapter.draft["items"]) == 2
+    assert chapter.waiting_reason == "Prüfung wird erneut versucht"
+    assert chapter.waiting_since is None
+    assert chapter.error is None
+
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert (chapter.status, chapter.batch_id) == (ChapterStatus.verifying, None)
+
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert chapter.batch_id == llm.submits[-1].batch_id
+    assert chapter.waiting_reason is None
+
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert chapter.status == ChapterStatus.ready
+    assert [c.feature for c in llm.submits] == [Feature.generate, Feature.verify]
 
 
 async def test_batch_error_fails_with_message(db_session):
