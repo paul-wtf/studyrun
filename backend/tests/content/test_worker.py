@@ -122,6 +122,32 @@ async def test_worker_retries_a_verification_submit_on_the_next_tick(db_session,
     assert [c.custom_id for c in llm.submits] == [f"ver-{chapter.id}"]
 
 
+async def test_one_broken_chapter_does_not_stop_the_tick(db_session, factory, monkeypatch, caplog):
+    module = await seed_module(db_session)
+    booklet = await seed_booklet(db_session, module)
+    broken_batch = await seed_chapter(
+        db_session, booklet, index=0, status=ChapterStatus.generating, batch_id="b1"
+    )
+    await seed_chapter(db_session, booklet, index=1, status=ChapterStatus.generating, batch_id="b2")
+    broken_pending = await seed_chapter(db_session, booklet, index=2)
+    pending = await seed_chapter(db_session, booklet, index=3)
+    broken = {broken_batch.id, broken_pending.id}
+    real = worker.advance_chapter
+
+    async def flaky(session, llm, chapter_id, now):
+        if chapter_id in broken:
+            raise RuntimeError("Datenbank weg")
+        await real(session, llm, chapter_id, now)
+
+    monkeypatch.setattr(worker, "advance_chapter", flaky)
+    llm = FakeBatchLLM()
+
+    await tick(factory, llm, Settings(generation_max_in_flight=10), NOW)
+    assert [c.batch_id for c in llm.collects] == ["b2"]
+    assert [c.custom_id for c in llm.submits] == [f"gen-{pending.id}"]
+    assert sum("chapter" in r.getMessage() for r in caplog.records if r.exc_info) == 2
+
+
 async def test_restart_resumes_from_batch_id(db_session, factory):
     module = await seed_module(db_session)
     booklet = await seed_booklet(db_session, module)

@@ -25,11 +25,15 @@ def _not_waiting_today(day_start: datetime):
 
 
 async def _advance(factory: Factory, llm: BatchLLM, chapter_id: int, now: datetime) -> bool:
-    async with factory() as session:
-        await advance_chapter(session, llm, chapter_id, now)
-        await session.commit()
-        chapter = await session.get(Chapter, chapter_id)
-        return chapter is not None and chapter.batch_id is not None
+    try:
+        async with factory() as session:
+            await advance_chapter(session, llm, chapter_id, now)
+            await session.commit()
+            chapter = await session.get(Chapter, chapter_id)
+            return chapter is not None and chapter.batch_id is not None
+    except Exception:
+        log.exception("could not advance chapter %s", chapter_id)
+        return False
 
 
 async def tick(factory: Factory, llm: BatchLLM, settings: Settings, now: datetime) -> None:
