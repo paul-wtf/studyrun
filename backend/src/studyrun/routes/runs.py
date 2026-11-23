@@ -105,10 +105,9 @@ async def _run_out(session: AsyncSession, run: Run) -> dict[str, Any]:
     return {"id": run.id, "entries": entries}
 
 
-@router.post("/runs")
-async def start_run(session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+async def _unfinished_run(session: AsyncSession, settings: Settings, now: datetime) -> Run | None:
     local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
-    run = (
+    return (
         await session.scalars(
             select(Run)
             .where(Run.local_date == local_date, Run.finished_at.is_(None))
@@ -116,8 +115,22 @@ async def start_run(session: Session, settings: AppSettings, now: Now) -> dict[s
             .limit(1)
         )
     ).first()
+
+
+@router.get("/runs/current")
+async def current_run(session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+    run = await _unfinished_run(session, settings, now)
+    return {"run": None if run is None else await _run_out(session, run)}
+
+
+@router.post("/runs")
+async def start_run(session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+    run = await _unfinished_run(session, settings, now)
     if run is None:
         entries = await build_run(session, settings, now)
+        if not entries:
+            return {"id": None, "entries": []}
+        local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
         run = Run(local_date=local_date, entries=entries)
         session.add(run)
         await session.flush()

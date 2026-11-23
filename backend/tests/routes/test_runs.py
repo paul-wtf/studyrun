@@ -16,6 +16,7 @@ from studyrun.models.db import (
     ItemStatus,
     ReviewLog,
     ReviewState,
+    Run,
 )
 from studyrun.study.grading import GradeResult
 
@@ -88,6 +89,47 @@ async def test_run_resumes_same_berlin_day(api, db_session, clock):
     assert (await start(client))["id"] == first["id"]
     clock.now = berlin(24, 0, 10)
     assert (await start(client))["id"] != first["id"]
+
+
+async def test_current_is_null_without_run(api, db_session, clock):
+    client, _ = api
+    await seed(db_session)
+    assert (await client.get("/api/runs/current")).json() == {"run": None}
+    assert (await client.get("/api/runs/current")).json() == {"run": None}
+
+
+async def test_current_returns_unfinished_run(api, db_session, clock):
+    client, _ = api
+    await seed(db_session)
+    first = await start(client)
+    assert (await client.get("/api/runs/current")).json() == {"run": first}
+
+
+async def test_current_is_null_after_finish(api, db_session, clock):
+    client, _ = api
+    await seed(db_session)
+    first = await start(client)
+    await client.post(f"/api/runs/{first['id']}/finish")
+    assert (await client.get("/api/runs/current")).json() == {"run": None}
+
+
+async def test_current_ignores_yesterdays_run(api, db_session, clock):
+    client, _ = api
+    await seed(db_session)
+    clock.now = berlin(23, 23, 30)
+    await start(client)
+    clock.now = berlin(24, 0, 10)
+    assert (await client.get("/api/runs/current")).json() == {"run": None}
+
+
+async def test_empty_run_is_not_persisted(api, db_session, clock):
+    client, _ = api
+    assert await start(client) == {"id": None, "entries": []}
+    assert (await db_session.scalars(select(Run))).all() == []
+    await seed(db_session)
+    run = await start(client)
+    assert run["id"] is not None
+    assert run["entries"]
 
 
 async def test_finished_run_is_not_resumed(api, db_session, clock):
