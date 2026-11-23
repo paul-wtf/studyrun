@@ -74,6 +74,8 @@ async def fix_item(item_id: int, body: ItemFix, session: Session) -> dict[str, s
     item = await session.get(Item, item_id)
     if item is None:
         raise HTTPException(404, "Aufgabe nicht gefunden")
+    if item.status != ItemStatus.flagged:
+        raise HTTPException(409, "Nur gemeldete Fragen können bearbeitet werden.")
     chapter = await session.get(Chapter, item.chapter_id)
     assert chapter is not None
     page = body.source_page if body.source_page is not None else item.source_page
@@ -99,6 +101,8 @@ async def delete_item(item_id: int, session: Session) -> dict[str, str]:
     item = await session.get(Item, item_id)
     if item is None:
         raise HTTPException(404, "Aufgabe nicht gefunden")
+    if item.status != ItemStatus.flagged:
+        raise HTTPException(409, "Nur gemeldete Fragen können gelöscht werden.")
     item.status = ItemStatus.deleted
     await session.flush()
     return {"status": item.status.value}

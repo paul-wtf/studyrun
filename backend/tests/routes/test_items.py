@@ -99,3 +99,26 @@ async def test_delete(api, db_session):
     assert item.status == ItemStatus.deleted
     assert (await client.get("/api/flags")).json() == []
     assert (await client.delete("/api/items/999")).status_code == 404
+
+
+async def test_fix_and_delete_only_act_on_flagged_items(api, db_session):
+    client, _ = api
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module)
+    gone = await make_item(db_session, chapter, payload=MC, status=ItemStatus.deleted)
+    live = await make_item(db_session, chapter, payload=MC)
+    resp = await client.put(f"/api/items/{gone.id}", json={"payload": MC})
+    assert resp.status_code == 409
+    await db_session.refresh(gone)
+    assert gone.status == ItemStatus.deleted
+    assert (await client.put(f"/api/items/{live.id}", json={"payload": MC})).status_code == 409
+    assert (await client.delete(f"/api/items/{live.id}")).status_code == 409
+    await db_session.refresh(live)
+    assert live.status == ItemStatus.active
+
+
+async def test_delete_twice_conflicts(api, db_session):
+    client, _ = api
+    _, item = await flagged(db_session)
+    assert (await client.delete(f"/api/items/{item.id}")).status_code == 200
+    assert (await client.delete(f"/api/items/{item.id}")).status_code == 409
