@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from fsrs import Rating
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, TypeAdapter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.clock import local_day_bounds
 from studyrun.ai.llm import LLM, LLMUnavailable
 from studyrun.config import Settings
+from studyrun.content.schemas import Concept
 from studyrun.deps import get_llm, get_now, get_settings
 from studyrun.models.db import Chapter, ChapterStatus, Item, ItemKind, ItemStatus, ReviewState, Run
 from studyrun.routes.modules import Session
@@ -35,6 +36,107 @@ class AnswerIn(BaseModel):
 
 class SelfRateIn(BaseModel):
     rating: Literal["again", "good"]
+
+
+class McViewOut(BaseModel):
+    id: int
+    kind: Literal["mc"]
+    prompt: str
+    options: list[str]
+    source: str
+
+
+class TrueFalseViewOut(BaseModel):
+    id: int
+    kind: Literal["true_false"]
+    statement: str
+    source: str
+
+
+class ClozeViewOut(BaseModel):
+    id: int
+    kind: Literal["cloze"]
+    text: str
+    source: str
+
+
+class FreeViewOut(BaseModel):
+    id: int
+    kind: Literal["free"]
+    prompt: str
+    source: str
+
+
+ItemViewOut = Annotated[
+    McViewOut | TrueFalseViewOut | ClozeViewOut | FreeViewOut, Field(discriminator="kind")
+]
+_ITEM_VIEW: TypeAdapter[ItemViewOut] = TypeAdapter(ItemViewOut)
+
+
+class ChapterViewOut(BaseModel):
+    id: int
+    title: str
+    summary: str | None
+    concepts: list[Concept]
+    source: str
+
+
+class IntroEntryOut(BaseModel):
+    n: int
+    type: Literal["intro"]
+    done: bool
+    grading_unavailable: bool
+    chapter: ChapterViewOut
+
+
+class ItemEntryOut(BaseModel):
+    n: int
+    type: Literal["item"]
+    done: bool
+    grading_unavailable: bool
+    item: ItemViewOut
+
+
+EntryOut = Annotated[IntroEntryOut | ItemEntryOut, Field(discriminator="type")]
+
+
+class RunOut(BaseModel):
+    id: int | None
+    entries: list[EntryOut]
+
+
+class CurrentRunOut(BaseModel):
+    run: RunOut | None
+
+
+class DoneOut(BaseModel):
+    done: Literal[True]
+
+
+class ObjectiveResultOut(BaseModel):
+    correct: bool
+    expected: str
+    explanation: str
+
+
+class FreeResultOut(BaseModel):
+    score: int
+    feedback: str
+    missing: list[str]
+    model_answer: str
+
+
+class GradingUnavailableOut(BaseModel):
+    grading_unavailable: Literal[True]
+    reason: str
+    model_answer: str
+
+
+class RunSummaryOut(BaseModel):
+    answered: int
+    correct: int
+    chapters_introduced: list[str]
+    due_tomorrow: int
 
 
 def pdf_link(booklet_id: int, page: int) -> str:
@@ -60,7 +162,7 @@ def _store(run: Run, n: int, entry: dict[str, Any]) -> None:
     run.entries = [entry if i == n else e for i, e in enumerate(run.entries)]
 
 
-async def _run_out(session: AsyncSession, run: Run) -> dict[str, Any]:
+async def _run_out(session: AsyncSession, run: Run) -> RunOut:
     chapter_ids = [e["chapter_id"] for e in run.entries if e["type"] == "intro"]
     item_ids = [e["item_id"] for e in run.entries if e["type"] == "item"]
     chapters = {
@@ -81,28 +183,40 @@ async def _run_out(session: AsyncSession, run: Run) -> dict[str, Any]:
             )
         ).all()
     }
-    entries: list[dict[str, Any]] = []
+    entries: list[IntroEntryOut | ItemEntryOut] = []
     for n, entry in enumerate(run.entries):
-        out: dict[str, Any] = {
-            "n": n,
-            "type": entry["type"],
-            "done": bool(entry.get("done")),
-            "grading_unavailable": bool(entry.get("grading_unavailable")),
-        }
+        done = bool(entry.get("done"))
+        unavailable = bool(entry.get("grading_unavailable"))
         if entry["type"] == "intro":
             chapter, booklet_id = chapters[entry["chapter_id"]]
-            out["chapter"] = {
-                "id": chapter.id,
-                "title": chapter.title,
-                "summary": chapter.summary,
-                "concepts": chapter.concepts,
-                "source": pdf_link(booklet_id, chapter.first_page),
-            }
+            entries.append(
+                IntroEntryOut(
+                    n=n,
+                    type="intro",
+                    done=done,
+                    grading_unavailable=unavailable,
+                    chapter=ChapterViewOut(
+                        id=chapter.id,
+                        title=chapter.title,
+                        summary=chapter.summary,
+                        concepts=[Concept.model_validate(c) for c in chapter.concepts],
+                        source=pdf_link(booklet_id, chapter.first_page),
+                    ),
+                )
+            )
         else:
             item, booklet_id = items[entry["item_id"]]
-            out["item"] = public_view(item) | {"source": pdf_link(booklet_id, item.source_page)}
-        entries.append(out)
-    return {"id": run.id, "entries": entries}
+            view = public_view(item) | {"source": pdf_link(booklet_id, item.source_page)}
+            entries.append(
+                ItemEntryOut(
+                    n=n,
+                    type="item",
+                    done=done,
+                    grading_unavailable=unavailable,
+                    item=_ITEM_VIEW.validate_python(view),
+                )
+            )
+    return RunOut(id=run.id, entries=entries)
 
 
 async def _unfinished_run(session: AsyncSession, settings: Settings, now: datetime) -> Run | None:
@@ -118,18 +232,18 @@ async def _unfinished_run(session: AsyncSession, settings: Settings, now: dateti
 
 
 @router.get("/runs/current")
-async def current_run(session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+async def current_run(session: Session, settings: AppSettings, now: Now) -> CurrentRunOut:
     run = await _unfinished_run(session, settings, now)
-    return {"run": None if run is None else await _run_out(session, run)}
+    return CurrentRunOut(run=None if run is None else await _run_out(session, run))
 
 
 @router.post("/runs")
-async def start_run(session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+async def start_run(session: Session, settings: AppSettings, now: Now) -> RunOut:
     run = await _unfinished_run(session, settings, now)
     if run is None:
         entries = await build_run(session, settings, now)
         if not entries:
-            return {"id": None, "entries": []}
+            return RunOut(id=None, entries=[])
         local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
         run = Run(local_date=local_date, entries=entries)
         session.add(run)
@@ -138,7 +252,7 @@ async def start_run(session: Session, settings: AppSettings, now: Now) -> dict[s
 
 
 @router.post("/runs/{run_id}/entries/{n}/ack")
-async def ack_intro(run_id: int, n: int, session: Session, now: Now) -> dict[str, bool]:
+async def ack_intro(run_id: int, n: int, session: Session, now: Now) -> DoneOut:
     run = await _get_run(session, run_id)
     entry = _entry(run, n)
     if entry["type"] != "intro":
@@ -148,7 +262,7 @@ async def ack_intro(run_id: int, n: int, session: Session, now: Now) -> dict[str
         chapter.introduced_at = now
     _store(run, n, {**entry, "done": True})
     await session.flush()
-    return {"done": True}
+    return DoneOut(done=True)
 
 
 def _item_entry(run: Run, n: int) -> dict[str, Any]:
@@ -170,7 +284,7 @@ async def _item(session: AsyncSession, entry: dict[str, Any]) -> Item:
 @router.post("/runs/{run_id}/entries/{n}/answer")
 async def answer(
     run_id: int, n: int, body: AnswerIn, session: Session, now: Now, llm: Llm
-) -> dict[str, Any]:
+) -> ObjectiveResultOut | FreeResultOut | GradingUnavailableOut:
     run = await _get_run(session, run_id)
     entry = _item_entry(run, n)
     item = await _item(session, entry)
@@ -190,11 +304,9 @@ async def answer(
         )
         _store(run, n, {**entry, "done": True, "correct": result.correct})
         await session.flush()
-        return {
-            "correct": result.correct,
-            "expected": result.expected,
-            "explanation": result.explanation,
-        }
+        return ObjectiveResultOut(
+            correct=result.correct, expected=result.expected, explanation=result.explanation
+        )
 
     text = body.answer.get("text")
     if not isinstance(text, str):
@@ -210,7 +322,9 @@ async def answer(
     if reason is not None:
         _store(run, n, {**entry, "grading_unavailable": True})
         await session.flush()
-        return {"grading_unavailable": True, "reason": reason, "model_answer": model_answer}
+        return GradingUnavailableOut(
+            grading_unavailable=True, reason=reason, model_answer=model_answer
+        )
 
     await record_review(
         session, item.id, rating_for_score(grade.score), now, correct=None, score=grade.score
@@ -221,18 +335,16 @@ async def answer(
         {**entry, "done": True, "correct": grade.score >= 75, "grading_unavailable": False},
     )
     await session.flush()
-    return {
-        "score": grade.score,
-        "feedback": grade.feedback,
-        "missing": grade.missing,
-        "model_answer": model_answer,
-    }
+    return FreeResultOut(
+        score=grade.score,
+        feedback=grade.feedback,
+        missing=grade.missing,
+        model_answer=model_answer,
+    )
 
 
 @router.post("/runs/{run_id}/entries/{n}/self-rate")
-async def self_rate(
-    run_id: int, n: int, body: SelfRateIn, session: Session, now: Now
-) -> dict[str, bool]:
+async def self_rate(run_id: int, n: int, body: SelfRateIn, session: Session, now: Now) -> DoneOut:
     run = await _get_run(session, run_id)
     entry = _item_entry(run, n)
     if not entry.get("grading_unavailable"):
@@ -248,11 +360,11 @@ async def self_rate(
     )
     _store(run, n, {**entry, "done": True, "correct": good})
     await session.flush()
-    return {"done": True}
+    return DoneOut(done=True)
 
 
 @router.post("/runs/{run_id}/finish")
-async def finish(run_id: int, session: Session, settings: AppSettings, now: Now) -> dict[str, Any]:
+async def finish(run_id: int, session: Session, settings: AppSettings, now: Now) -> RunSummaryOut:
     run = await _get_run(session, run_id)
     if run.finished_at is None:
         run.finished_at = now
@@ -276,9 +388,9 @@ async def finish(run_id: int, session: Session, settings: AppSettings, now: Now)
         )
     )
     await session.flush()
-    return {
-        "answered": len(items),
-        "correct": sum(1 for e in items if e.get("correct")),
-        "chapters_introduced": [titles[i] for i in chapter_ids if i in titles],
-        "due_tomorrow": min(due_count or 0, settings.run_review_cap),
-    }
+    return RunSummaryOut(
+        answered=len(items),
+        correct=sum(1 for e in items if e.get("correct")),
+        chapters_introduced=[titles[i] for i in chapter_ids if i in titles],
+        due_tomorrow=min(due_count or 0, settings.run_review_cap),
+    )

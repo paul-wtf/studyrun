@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -21,15 +21,19 @@ class FlagIn(BaseModel):
     reason: FlagReason
 
 
+class FlaggedOut(BaseModel):
+    status: Literal["flagged"]
+
+
 @router.post("/items/{item_id}/flag")
-async def flag_item(item_id: int, body: FlagIn, session: Session) -> dict[str, str]:
+async def flag_item(item_id: int, body: FlagIn, session: Session) -> FlaggedOut:
     item = await session.get(Item, item_id)
     if item is None:
         raise HTTPException(404, "Aufgabe nicht gefunden")
     item.status = ItemStatus.flagged
     item.flag_reason = body.reason
     await session.flush()
-    return {"status": item.status.value}
+    return FlaggedOut(status="flagged")
 
 
 class ItemFix(BaseModel):

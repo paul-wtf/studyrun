@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -23,11 +23,14 @@ class ChapterCounts(BaseModel):
     failed: int = 0
 
 
+BookletStatus = Literal["processing", "ready", "failed"]
+
+
 class BookletOut(BaseModel):
     id: int
     filename: str
     page_count: int
-    status: str
+    status: BookletStatus
     chapters: ChapterCounts
 
 
@@ -60,7 +63,7 @@ class ChapterOut(BaseModel):
     active_items: int
 
 
-def derive_status(counts: ChapterCounts) -> str:
+def derive_status(counts: ChapterCounts) -> BookletStatus:
     if counts.failed:
         return "failed"
     if counts.ready and sum(counts.model_dump().values()) == counts.ready:
