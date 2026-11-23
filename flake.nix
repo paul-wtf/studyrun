@@ -13,6 +13,7 @@
           packages = with pkgs; [ python312 uv nodejs_24 pnpm kubernetes-helm kustomize ];
           UV_PYTHON_PREFERENCE = "only-system";
           UV_PYTHON_DOWNLOADS = "never";
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib pkgs.zlib ];
         };
       });
     };
