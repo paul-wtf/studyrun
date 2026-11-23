@@ -1,9 +1,14 @@
 <script lang="ts">
-  import { api, errorText } from '#lib/api/client.ts';
+  import { api, errorText, isStale } from '#lib/api/client.ts';
   import type { ItemEntry, ObjectiveResult } from '#lib/api/types.ts';
   import Feedback from './Feedback.svelte';
 
-  let { runId, entry, onDone }: { runId: number; entry: ItemEntry; onDone: () => void } = $props();
+  let {
+    runId,
+    entry,
+    onDone,
+    onStale
+  }: { runId: number; entry: ItemEntry; onDone: () => void; onStale?: () => void } = $props();
   let text = $state('');
   let result = $state<ObjectiveResult | null>(null);
   let busy = $state(false);
@@ -19,6 +24,7 @@
         answer: { text }
       });
     } catch (e) {
+      if (isStale(e) && onStale) return onStale();
       error = errorText(e);
       busy = false;
     }

@@ -1,9 +1,14 @@
 <script lang="ts">
-  import { api, errorText } from '#lib/api/client.ts';
+  import { api, errorText, isStale } from '#lib/api/client.ts';
   import type { FreeResult, GradingUnavailable, ItemEntry } from '#lib/api/types.ts';
   import Feedback from './Feedback.svelte';
 
-  let { runId, entry, onDone }: { runId: number; entry: ItemEntry; onDone: () => void } = $props();
+  let {
+    runId,
+    entry,
+    onDone,
+    onStale
+  }: { runId: number; entry: ItemEntry; onDone: () => void; onStale?: () => void } = $props();
   let text = $state('');
   let result = $state<FreeResult | null>(null);
   let unavailable = $state<GradingUnavailable | null>(null);
@@ -22,6 +27,7 @@
       if ('grading_unavailable' in res) unavailable = res;
       else result = res;
     } catch (e) {
+      if (isStale(e) && onStale) return onStale();
       error = errorText(e);
       busy = false;
     }
@@ -33,6 +39,7 @@
       await api.post(`/api/runs/${runId}/entries/${entry.n}/self-rate`, { rating });
       onDone();
     } catch (e) {
+      if (isStale(e) && onStale) return onStale();
       error = errorText(e);
     }
   }

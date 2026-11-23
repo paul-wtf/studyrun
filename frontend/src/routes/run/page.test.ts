@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import Page from './+page.svelte';
@@ -26,7 +26,6 @@ const RUN = {
 const SUMMARY = { answered: 1, correct: 1, chapters_introduced: ['Die Zelle'], due_tomorrow: 2 };
 
 describe('run page', () => {
-  beforeEach(() => localStorage.clear());
   afterEach(() => vi.unstubAllGlobals());
 
   it('moves to the next entry and shows the summary after finish', async () => {
@@ -46,7 +45,6 @@ describe('run page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Weiter' }));
     expect(await screen.findByText('1 von 1 richtig')).toBeInTheDocument();
     expect(calls.at(-1)?.path).toBe('/api/runs/1/finish');
-    expect(localStorage.getItem('studyrun.run')).toBeNull();
   });
 
   it('finishes early with Beenden', async () => {
@@ -57,13 +55,32 @@ describe('run page', () => {
     expect(calls.map((c) => c.path)).toEqual(['/api/runs', '/api/runs/1/finish']);
   });
 
-  it('shows an empty state and closes the empty run', async () => {
-    const { calls } = mockApi({
-      'POST /api/runs': { id: 3, entries: [] },
-      'POST /api/runs/3/finish': { answered: 0, correct: 0, chapters_introduced: [], due_tomorrow: 0 }
-    });
+  it('shows an empty state when the server has no run to give', async () => {
+    const { calls } = mockApi({ 'POST /api/runs': { id: null, entries: [] } });
     render(Page);
     expect(await screen.findByText(/nichts zu lernen/i)).toBeInTheDocument();
-    expect(calls.at(-1)?.path).toBe('/api/runs/3/finish');
+    expect(calls.map((c) => c.path)).toEqual(['/api/runs']);
+  });
+
+  it('reloads the run when another device answered the entry', async () => {
+    const { fetchMock } = mockApi({
+      'POST /api/runs': { ...RUN, entries: [{ ...RUN.entries[0], done: true }, RUN.entries[1]] }
+    });
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify(RUN), { status: 200, headers: { 'content-type': 'application/json' } }));
+    fetchMock.mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ detail: 'Dieser Eintrag ist schon beantwortet.' }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+    render(Page);
+    await userEvent.click(await screen.findByRole('button', { name: 'Weiter' }));
+    expect(await screen.findByText('Wasser ist nass.')).toBeInTheDocument();
+    expect(screen.getByText(/auf einem anderen Gerät beantwortet/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      '/api/runs',
+      '/api/runs/1/entries/0/ack',
+      '/api/runs'
+    ]);
   });
 });

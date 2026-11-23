@@ -48,3 +48,7 @@ export const api = {
 export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : 'Unbekannter Fehler';
 }
+
+export function isStale(err: unknown): boolean {
+  return err instanceof ApiError && (err.status === 409 || err.status === 404);
+}

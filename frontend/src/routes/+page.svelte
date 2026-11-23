@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, SessionExpiredError } from '#lib/api/client.ts';
-  import { euro, hasRunToday } from '#lib/run.ts';
+  import { euro } from '#lib/format.ts';
 
   interface Costs { today: { total: number }; cap_today: number }
   interface Module { booklets: { chapters: { ready: number } }[] }
@@ -12,13 +12,14 @@
   let error = $state('');
 
   onMount(async () => {
-    resume = hasRunToday();
     try {
-      const [c, modules] = await Promise.all([
+      const [c, modules, current] = await Promise.all([
         api.get<Costs>('/api/costs'),
-        api.get<Module[]>('/api/modules')
+        api.get<Module[]>('/api/modules'),
+        api.get<{ run: { entries: unknown[] } | null }>('/api/runs/current')
       ]);
       costs = c;
+      resume = current.run !== null && current.run.entries.length > 0;
       ready = modules.some((m) => m.booklets.some((b) => b.chapters.ready > 0));
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = 'Daten konnten nicht geladen werden.';

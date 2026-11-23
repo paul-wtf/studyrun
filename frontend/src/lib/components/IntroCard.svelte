@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { api, errorText } from '#lib/api/client.ts';
+  import { api, errorText, isStale } from '#lib/api/client.ts';
   import type { IntroEntry } from '#lib/api/types.ts';
 
-  let { runId, entry, onDone }: { runId: number; entry: IntroEntry; onDone: () => void } = $props();
+  let {
+    runId,
+    entry,
+    onDone,
+    onStale
+  }: { runId: number; entry: IntroEntry; onDone: () => void; onStale?: () => void } = $props();
   let busy = $state(false);
   let error = $state('');
 
@@ -13,6 +18,7 @@
       await api.post(`/api/runs/${runId}/entries/${entry.n}/ack`);
       onDone();
     } catch (e) {
+      if (isStale(e) && onStale) return onStale();
       error = errorText(e);
       busy = false;
     }

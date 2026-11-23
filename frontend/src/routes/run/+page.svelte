@@ -2,8 +2,7 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import type { Run, RunSummaryData } from '#lib/api/types.ts';
-  import { clearRunMarker, markRunStarted } from '#lib/run.ts';
-  import IntroCard from '#lib/components/IntroCard.svelte';
+    import IntroCard from '#lib/components/IntroCard.svelte';
   import McQuestion from '#lib/components/McQuestion.svelte';
   import TrueFalseQuestion from '#lib/components/TrueFalseQuestion.svelte';
   import ClozeQuestion from '#lib/components/ClozeQuestion.svelte';
@@ -14,6 +13,7 @@
   let summary = $state<RunSummaryData | null>(null);
   let empty = $state(false);
   let error = $state('');
+  let note = $state('');
 
   const current = $derived(run?.entries.find((e) => !e.done));
   const doneCount = $derived(run?.entries.filter((e) => e.done).length ?? 0);
@@ -22,7 +22,6 @@
     if (!run) return;
     try {
       summary = await api.post<RunSummaryData>(`/api/runs/${run.id}/finish`);
-      clearRunMarker();
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = errorText(e);
     }
@@ -35,16 +34,27 @@
     if (!run.entries.some((e) => !e.done)) void finish();
   }
 
+  async function reload() {
+    try {
+      const fresh = await api.post<Run>('/api/runs');
+      if (fresh.entries.length === 0) {
+        run = null;
+        empty = true;
+        return;
+      }
+      run = fresh;
+      note = 'Diese Aufgabe wurde schon auf einem anderen Gerät beantwortet.';
+      if (!current) await finish();
+    } catch (e) {
+      if (!(e instanceof SessionExpiredError)) error = errorText(e);
+    }
+  }
+
   onMount(async () => {
     try {
       run = await api.post<Run>('/api/runs');
-      if (run.entries.length === 0) {
-        empty = true;
-        await api.post(`/api/runs/${run.id}/finish`);
-      } else {
-        markRunStarted(run.id);
-        if (!current) await finish();
-      }
+      if (run.entries.length === 0) empty = true;
+      else if (!current) await finish();
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = errorText(e);
     }
@@ -73,17 +83,18 @@
     </div>
     <button class="quit" onclick={finish}>Beenden</button>
   </div>
+  {#if note}<p class="muted" role="status">{note}</p>{/if}
   {#key current.n}
     {#if current.type === 'intro'}
-      <IntroCard runId={run.id} entry={current} onDone={() => advance(current.n)} />
+      <IntroCard runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {:else if current.item.kind === 'mc'}
-      <McQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} />
+      <McQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {:else if current.item.kind === 'true_false'}
-      <TrueFalseQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} />
+      <TrueFalseQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {:else if current.item.kind === 'cloze'}
-      <ClozeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} />
+      <ClozeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {:else}
-      <FreeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} />
+      <FreeQuestion runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
     {/if}
   {/key}
 {:else if !error}
