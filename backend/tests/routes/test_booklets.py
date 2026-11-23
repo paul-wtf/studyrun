@@ -32,6 +32,7 @@ async def test_upload_creates_pending_chapters(api):
         "verifying": 0,
         "ready": 0,
         "failed": 0,
+        "skipped": 0,
     }
 
     chapters = (await client.get(f"/api/modules/{module_id}/chapters")).json()
@@ -206,6 +207,9 @@ async def test_retry_ready_chapter_conflicts(api, db_session):
         ([ChapterStatus.ready, ChapterStatus.ready], "ready"),
         ([ChapterStatus.ready, ChapterStatus.failed, ChapterStatus.pending], "failed"),
         ([ChapterStatus.ready, ChapterStatus.generating], "processing"),
+        ([ChapterStatus.ready, ChapterStatus.skipped, ChapterStatus.ready], "ready"),
+        ([ChapterStatus.skipped, ChapterStatus.pending], "processing"),
+        ([ChapterStatus.skipped, ChapterStatus.failed], "failed"),
     ],
 )
 async def test_booklet_status_is_derived(api, db_session, statuses, expected):
@@ -219,3 +223,41 @@ async def test_booklet_status_is_derived(api, db_session, statuses, expected):
     await db_session.flush()
     listing = (await client.get("/api/modules")).json()
     assert listing[0]["booklets"][0]["status"] == expected
+    counts = listing[0]["booklets"][0]["chapters"]
+    assert counts["skipped"] == statuses.count(ChapterStatus.skipped)
+
+
+@pytest.mark.parametrize("status", [ChapterStatus.failed, ChapterStatus.pending])
+async def test_skip_chapter(api, db_session, status):
+    client, _ = api
+    chapter = await _first_chapter(client, db_session)
+    chapter.status = status
+    chapter.error = "kaputt" if status == ChapterStatus.failed else None
+    chapter.draft = {"x": 1}
+    chapter.waiting_reason = "budget"
+    await db_session.flush()
+
+    resp = await client.post(f"/api/chapters/{chapter.id}/skip")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "skipped"
+    await db_session.refresh(chapter)
+    assert chapter.status == ChapterStatus.skipped
+    assert (chapter.error, chapter.draft, chapter.batch_id, chapter.waiting_reason) == (
+        None,
+        None,
+        None,
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "status",
+    [ChapterStatus.ready, ChapterStatus.generating, ChapterStatus.verifying, ChapterStatus.skipped],
+)
+async def test_skip_conflicts_unless_failed_or_pending(api, db_session, status):
+    client, _ = api
+    chapter = await _first_chapter(client, db_session)
+    chapter.status = status
+    await db_session.flush()
+    assert (await client.post(f"/api/chapters/{chapter.id}/skip")).status_code == 409
+    assert (await client.post("/api/chapters/999/skip")).status_code == 404

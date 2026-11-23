@@ -39,6 +39,10 @@ die eine gute Antwort enthalten muss. source_excerpt ist ein wörtliches Zitat a
 (höchstens 600 Zeichen), das die Antwort trägt.
 
 Außerdem:
+- no_content ist true, wenn die Seiten keinen Stoff zum Lernen enthalten: nur \
+Inhaltsverzeichnis, Stichwortverzeichnis, Literaturverzeichnis, Impressum, leere Seiten oder \
+Lösungen zu Übungsaufgaben. Dann bleiben summary leer und concepts und items leere Listen. \
+Sonst ist no_content false.
 - summary ist eine Zusammenfassungskarte des Kapitels in 4 bis 8 Sätzen.
 - concepts sind die zentralen Begriffe des Kapitels, jeder mit einer kurzen Erklärung \
 nach dem Heft.

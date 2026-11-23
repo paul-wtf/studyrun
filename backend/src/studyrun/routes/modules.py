@@ -21,6 +21,7 @@ class ChapterCounts(BaseModel):
     verifying: int = 0
     ready: int = 0
     failed: int = 0
+    skipped: int = 0
 
 
 BookletStatus = Literal["processing", "ready", "failed"]
@@ -66,7 +67,8 @@ class ChapterOut(BaseModel):
 def derive_status(counts: ChapterCounts) -> BookletStatus:
     if counts.failed:
         return "failed"
-    if counts.ready and sum(counts.model_dump().values()) == counts.ready:
+    done = counts.ready + counts.skipped
+    if done and sum(counts.model_dump().values()) == done:
         return "ready"
     return "processing"
 

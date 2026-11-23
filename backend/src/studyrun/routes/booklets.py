@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.config import Settings
 from studyrun.content.pdf import BookletError, split_booklet
@@ -93,11 +94,24 @@ async def booklet_pdf(booklet_id: int, session: Session) -> Response:
     )
 
 
-@router.post("/chapters/{chapter_id}/retry")
-async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
+async def _get_chapter(session: AsyncSession, chapter_id: int) -> Chapter:
     chapter = await session.get(Chapter, chapter_id)
     if chapter is None:
         raise HTTPException(404, "Kapitel nicht gefunden")
+    return chapter
+
+
+async def _chapter_out(session: AsyncSession, chapter: Chapter) -> ChapterOut:
+    await session.flush()
+    active = await session.scalar(
+        select(func.count()).where(Item.chapter_id == chapter.id, Item.status == ItemStatus.active)
+    )
+    return chapter_out(chapter, active or 0)
+
+
+@router.post("/chapters/{chapter_id}/retry")
+async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
+    chapter = await _get_chapter(session, chapter_id)
     if chapter.status != ChapterStatus.failed:
         raise HTTPException(409, "Nur fehlgeschlagene Kapitel können neu gestartet werden.")
     if verifiable(chapter.draft):
@@ -109,8 +123,20 @@ async def retry_chapter(chapter_id: int, session: Session) -> ChapterOut:
     chapter.batch_id = None
     chapter.waiting_reason = None
     chapter.waiting_since = None
-    await session.flush()
-    active = await session.scalar(
-        select(func.count()).where(Item.chapter_id == chapter.id, Item.status == ItemStatus.active)
-    )
-    return chapter_out(chapter, active or 0)
+    return await _chapter_out(session, chapter)
+
+
+@router.post("/chapters/{chapter_id}/skip")
+async def skip_chapter(chapter_id: int, session: Session) -> ChapterOut:
+    chapter = await _get_chapter(session, chapter_id)
+    if chapter.status not in (ChapterStatus.failed, ChapterStatus.pending):
+        raise HTTPException(
+            409, "Nur fehlgeschlagene oder wartende Kapitel können übersprungen werden."
+        )
+    chapter.status = ChapterStatus.skipped
+    chapter.error = None
+    chapter.batch_id = None
+    chapter.draft = None
+    chapter.waiting_reason = None
+    chapter.waiting_since = None
+    return await _chapter_out(session, chapter)

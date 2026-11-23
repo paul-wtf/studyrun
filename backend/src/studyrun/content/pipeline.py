@@ -132,6 +132,12 @@ async def _collect_generation(
     )
     if generated is None:
         return
+    if generated.no_content:
+        chapter.status = ChapterStatus.skipped
+        chapter.batch_id = None
+        chapter.draft = None
+        chapter.error = None
+        return
     items = validate_items(generated.items, chapter.first_page, chapter.last_page)
     if not items:
         _fail(chapter, NO_VALID_ITEMS)

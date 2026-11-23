@@ -50,6 +50,7 @@ class Concept(BaseModel):
 
 
 class ChapterContent(BaseModel):
+    no_content: bool = False
     summary: str
     concepts: list[Concept]
     items: list[ItemUnion]

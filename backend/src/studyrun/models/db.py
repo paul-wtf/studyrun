@@ -35,6 +35,7 @@ class ChapterStatus(enum.StrEnum):
     verifying = "verifying"
     ready = "ready"
     failed = "failed"
+    skipped = "skipped"
 
 
 class ItemKind(enum.StrEnum):

@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.llm import LLMUnavailable
+from studyrun.content import prompts
 from studyrun.content.pipeline import advance_chapter
 from studyrun.content.schemas import ChapterContent, Verification
 from studyrun.models.db import Chapter, ChapterStatus, Feature, Item, ItemStatus, ReviewState
@@ -102,6 +103,27 @@ async def test_ready_with_verified_items(db_session):
     assert items[2].payload["prompt"] == "Wie heißt der erfundene Testfluss?"
     assert items[1].payload["rubric"] == ["nennt das Gefieder", "nennt fehlende Wasserabweisung"]
     assert await db_session.scalar(select(func.count()).select_from(ReviewState)) == 0
+
+
+async def test_chapter_without_learnable_content_is_skipped(db_session):
+    chapter = await seed_pending(db_session)
+    llm = FakeBatchLLM()
+    llm.queue(
+        f"gen-{chapter.id}",
+        ChapterContent(no_content=True, summary="", concepts=[], items=[]),
+    )
+    await _advance(db_session, llm, chapter.id)
+    chapter = await _advance(db_session, llm, chapter.id)
+    assert chapter.status == ChapterStatus.skipped
+    assert (chapter.batch_id, chapter.draft, chapter.error) == (None, None, None)
+    assert [c.feature for c in llm.submits] == [Feature.generate]
+    assert await db_session.scalar(select(func.count()).select_from(Item)) == 0
+
+
+def test_generation_asks_about_learnable_content():
+    assert "no_content" in ChapterContent.model_json_schema()["properties"]
+    assert "no_content" in prompts.GENERATION_SYSTEM
+    assert "Inhaltsverzeichnis" in prompts.GENERATION_SYSTEM
 
 
 async def test_stays_while_batch_processing(db_session):
