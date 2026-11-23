@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: studyrun
+      POSTGRES_PASSWORD: studyrun
+      POSTGRES_DB: studyrun
+    ports:
+      - "5432:5432"
