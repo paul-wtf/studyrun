@@ -312,6 +312,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subjects/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Subjects */
+        post: operations["import_subjects_api_subjects_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subjects */
+        get: operations["list_subjects_api_subjects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Subject */
+        get: operations["get_subject_api_subjects__subject_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Subject */
+        patch: operations["patch_subject_api_subjects__subject_id__patch"];
+        trace?: never;
+    };
+    "/api/semesters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Semesters */
+        get: operations["list_semesters_api_semesters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/semesters/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Semester */
+        put: operations["put_semester_api_semesters__label__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Attempt */
+        post: operations["create_attempt_api_subjects__subject_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Attempt */
+        delete: operations["delete_attempt_api_attempts__attempt_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Attempt */
+        patch: operations["patch_attempt_api_attempts__attempt_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -323,6 +444,39 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** AttemptCreate */
+        AttemptCreate: {
+            /**
+             * Sitting
+             * Format: date
+             */
+            sitting: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "planned" | "registered";
+        };
+        /** AttemptOut */
+        AttemptOut: {
+            /** Id */
+            id: number;
+            /**
+             * Sitting
+             * Format: date
+             */
+            sitting: string;
+            status: components["schemas"]["AttemptStatus"];
+        };
+        /** AttemptPatch */
+        AttemptPatch: {
+            status: components["schemas"]["AttemptStatus"];
+        };
+        /**
+         * AttemptStatus
+         * @enum {string}
+         */
+        AttemptStatus: "planned" | "registered" | "passed" | "failed";
         /** Body_upload_booklet_api_modules__module_id__booklets_post */
         Body_upload_booklet_api_modules__module_id__booklets_post: {
             /** File */
@@ -543,6 +697,13 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ImportOut */
+        ImportOut: {
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
+        };
         /** IntroEntryOut */
         IntroEntryOut: {
             /** N */
@@ -619,6 +780,8 @@ export interface components {
             name: string;
             /** Position */
             position: number;
+            /** Subject Id */
+            subject_id: number | null;
             /** Booklets */
             booklets: components["schemas"]["BookletOut"][];
         };
@@ -628,6 +791,8 @@ export interface components {
             name?: string | null;
             /** Position */
             position?: number | null;
+            /** Subject Id */
+            subject_id?: number | null;
         };
         /** ObjectiveResultOut */
         ObjectiveResultOut: {
@@ -672,6 +837,76 @@ export interface components {
              * @enum {string}
              */
             rating: "again" | "good";
+        };
+        /** SemesterOut */
+        SemesterOut: {
+            /** Label */
+            label: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /** SemesterPut */
+        SemesterPut: {
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /** SubjectImport */
+        SubjectImport: {
+            /** Semesters */
+            semesters: {
+                [key: string]: string;
+            };
+            /** Subjects */
+            subjects: components["schemas"]["SubjectImportEntry"][];
+        };
+        /** SubjectImportEntry */
+        SubjectImportEntry: {
+            /** Name */
+            name: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Earliest Semester */
+            earliest_semester: string;
+            /** Recommended Semester */
+            recommended_semester?: number | null;
+            /** Sittings */
+            sittings: string[];
+        };
+        /** SubjectOut */
+        SubjectOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Earliest Semester */
+            earliest_semester: string;
+            /** Recommended Semester */
+            recommended_semester: number | null;
+            /** Not Before */
+            not_before: string | null;
+            /** Pass Mark */
+            pass_mark: number;
+            /** Sittings */
+            sittings: string[];
+            /** Module Ids */
+            module_ids: number[];
+            /** Attempts */
+            attempts: components["schemas"]["AttemptOut"][];
+        };
+        /** SubjectPatch */
+        SubjectPatch: {
+            /** Not Before */
+            not_before?: string | null;
+            /** Pass Mark */
+            pass_mark?: number | null;
         };
         /** TrueFalseViewOut */
         TrueFalseViewOut: {
@@ -1296,6 +1531,279 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CostsOut"];
+                };
+            };
+        };
+    };
+    import_subjects_api_subjects_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subjects_api_subjects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"][];
+                };
+            };
+        };
+    };
+    get_subject_api_subjects__subject_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_subject_api_subjects__subject_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_semesters_api_semesters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemesterOut"][];
+                };
+            };
+        };
+    };
+    put_semester_api_semesters__label__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemesterPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemesterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_attempt_api_subjects__subject_id__attempts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_attempt_api_attempts__attempt_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_attempt_api_attempts__attempt_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

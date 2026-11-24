@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.deps import get_session
-from studyrun.models.db import Booklet, Chapter, ChapterStatus, Item, ItemStatus, Module
+from studyrun.models.db import Booklet, Chapter, ChapterStatus, Item, ItemStatus, Module, Subject
 
 router = APIRouter()
 
@@ -39,6 +39,7 @@ class ModuleOut(BaseModel):
     id: int
     name: str
     position: int
+    subject_id: int | None
     booklets: list[BookletOut]
 
 
@@ -49,6 +50,7 @@ class ModuleCreate(BaseModel):
 class ModulePatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     position: int | None = Field(default=None, ge=0)
+    subject_id: int | None = None
 
 
 class ChapterOut(BaseModel):
@@ -104,6 +106,7 @@ async def module_out(session: AsyncSession, module: Module) -> ModuleOut:
         id=module.id,
         name=module.name,
         position=module.position,
+        subject_id=module.subject_id,
         booklets=[out[i] for i in sorted(ids)],
     )
 
@@ -127,6 +130,7 @@ async def list_modules(session: Session) -> list[ModuleOut]:
             id=m.id,
             name=m.name,
             position=m.position,
+            subject_id=m.subject_id,
             booklets=[out[bid] for mid, bid in booklet_rows if mid == m.id],
         )
         for m in modules
@@ -147,6 +151,10 @@ async def patch_module(module_id: int, body: ModulePatch, session: Session) -> M
     module = await _get_module(session, module_id)
     if body.name is not None:
         module.name = body.name
+    if "subject_id" in body.model_fields_set:
+        if body.subject_id is not None and await session.get(Subject, body.subject_id) is None:
+            raise HTTPException(404, "Fach nicht gefunden")
+        module.subject_id = body.subject_id
     if body.position is not None:
         others = list(
             await session.scalars(
