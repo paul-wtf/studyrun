@@ -1,0 +1,18 @@
+studyrun has been deployed.
+{{- if .Values.ingress.enabled }}
+
+Application URL:
+  {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+
+No Ingress configured. The frontend calls /api on its own host, so the UI
+only works once something routes /api to the backend service (port 8080)
+and everything else to the frontend service (port 80). For a quick look:
+  kubectl port-forward svc/{{ include "studyrun.fullname" . }}-frontend 8080:80
+  kubectl port-forward svc/{{ include "studyrun.fullname" . }}-backend 8081:8080
+The first serves the UI shell on http://localhost:8080, the second the API
+on http://localhost:8081/api (for example /api/health).
+{{- end }}
+
+Using Secret: {{ .Values.secrets.existingSecret }}
+It must contain STUDYRUN_DATABASE_URL and STUDYRUN_ANTHROPIC_API_KEY.

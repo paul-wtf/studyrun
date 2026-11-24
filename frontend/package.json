@@ -1,0 +1,55 @@
+{
+  "name": "studyrun-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.9.0",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "gen:api": "openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.2.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/svelte": "^5.2.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/node": "^22.0.0",
+    "jsdom": "^24.0.0",
+    "openapi-typescript": "^7.13.0",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "tslib": "^2.6.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^4.1.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@>=2.0.0 <2.1.7": ">=2.1.7 <3",
+      "cookie@<0.7.0": ">=0.7.0",
+      "devalue@<5.9.3": ">=5.9.3 <6",
+      "esbuild@<0.28.1": ">=0.28.1",
+      "js-yaml@<4.3.2": ">=4.3.2 <5",
+      "postcss@<8.5.18": ">=8.5.18 <9",
+      "source-map-js@<1.2.2": ">=1.2.2 <2"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "openapi-typescript>typescript": "6"
+      }
+    }
+  }
+}

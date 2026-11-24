@@ -1,0 +1,5 @@
+async def test_health_ok(api):
+    client, _ = api
+    resp = await client.get("/api/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
