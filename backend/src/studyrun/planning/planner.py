@@ -26,6 +26,7 @@ ConflictKind = Literal[
     "no_material",
     "missing_semester",
     "planned_not_allowed",
+    "squeezes_other",
 ]
 Month = tuple[int, int]
 
@@ -123,6 +124,9 @@ class _Planner:
         self.scheduled: dict[int, date] = {}
         self.lapsed: list[tuple[PlanSubject, date, str]] = []
 
+    def names(self, subject_ids: list[int]) -> str:
+        return ", ".join(self.by_id[i].name for i in subject_ids)
+
     def conflict(self, subject: PlanSubject, kind: ConflictKind, message: str) -> None:
         self.conflicts.append(Conflict(subject.id, kind, message))
 
@@ -212,6 +216,14 @@ class _Planner:
         for sitting, s in planned:
             problem = self.planned_problem(s, sitting)
             if problem is None:
+                _, harmed = self.try_sitting(s.id, sitting)
+                if harmed:
+                    self.conflict(
+                        s,
+                        "squeezes_other",
+                        f"Dein Termin für {s.name} macht die Vorbereitung auf "
+                        f"{self.names(harmed)} zu knapp.",
+                    )
                 self.entries[s.id].state = "planned"
                 self.schedule(s, sitting)
             else:
@@ -299,22 +311,27 @@ class _Planner:
             self.schedule(s, in_window[0] if in_window else before_window[-1])
             return
         harmless = [d for d in free if not checks[d][1]]
+        displaced = self.names(
+            list(dict.fromkeys(i for d in free if checks[d][0] for i in checks[d][1]))
+        )
         if harmless:
             choice = harmless[-1]
+            reason = (
+                f"Jeder Termin, der beim aktuellen Tempo reicht, würde die Vorbereitung "
+                f"auf {displaced} zu knapp machen."
+                if displaced
+                else "Beim aktuellen Tempo reicht die Zeit für keinen Termin."
+            )
             self.conflict(
-                s,
-                "no_feasible_sitting",
-                "Beim aktuellen Tempo reicht die Zeit für keinen Termin. "
-                f"Vorgeschlagen ist der {_de(choice)}.",
+                s, "no_feasible_sitting", f"{reason} Vorgeschlagen ist der {_de(choice)}."
             )
             self.schedule(s, choice)
             return
-        displaced = list(dict.fromkeys(i for d in free for i in checks[d][1]))
-        names = ", ".join(self.by_id[i].name for i in displaced)
+        squeezed = self.names(list(dict.fromkeys(i for d in free for i in checks[d][1])))
         self.conflict(
             s,
             "no_feasible_sitting",
-            f"Kein Termin passt: Jeder freie Termin würde die Vorbereitung auf {names} "
+            f"Kein Termin passt: Jeder freie Termin würde die Vorbereitung auf {squeezed} "
             "zu knapp machen.",
         )
 

@@ -623,7 +623,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "no_feasible_sitting" | "two_in_month" | "before_not_before" | "no_material" | "missing_semester" | "planned_not_allowed";
+            kind: "no_feasible_sitting" | "two_in_month" | "before_not_before" | "no_material" | "missing_semester" | "planned_not_allowed" | "squeezes_other";
             /** Message */
             message: string;
         };

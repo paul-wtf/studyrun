@@ -154,7 +154,7 @@ PDF and handed to him; it doesn't go into git.
   days; until there is enough history, the default from the run sizes, four
   new items per run).
 - **Order of study:** one subject at a time. The planner lays the subjects
-  out in order, and each subject's learning starts when the previous one's
+  out in the order of their sittings, and each subject's learning starts when the previous one's
   material is learned, not when its exam is over. Reviews of earlier
   subjects keep running. (My call: it uses the time before a late sitting
   instead of leaving it idle.)
@@ -163,23 +163,34 @@ PDF and handed to him; it doesn't go into git.
   start date makes the subject "nicht planbar" with a hint to enter the
   date; the import accepts it.
 - **"Today"** for the 21-day rule and all date logic is the Berlin date.
-- **Target:** the planner aims each subject at a sitting inside its
-  recommended semester. If that is already past or not feasible at the
-  current pace, it takes the earliest feasible sitting after it. It never
-  goes before the eligible date; Paul can still pick an earlier eligible
-  sitting by hand.
-- **No sitting yet:** a subject whose eligible sittings all lie beyond the
-  imported dates is shown as "Termine folgen"; a later import adds them.
-- **Assignment:** subjects are processed by earliest eligible sitting. Each
-  gets the earliest sitting that is (a) eligible, (b) after its "not before"
-  date, (c) at least 21 days away if not yet registered, (d) in a month
-  without another planned or registered exam, and (e) late enough that its
-  effort fits into the days left, given the subjects planned before it.
-  Registered sittings are taken as fixed first.
+- **Target:** the recommended semester is a preference. The planner takes
+  the earliest good sitting from the start of the recommended semester on;
+  if there is none, it takes the latest good sitting before that start. It
+  never goes before the eligible date or the "not before" date. A subject
+  without a recommended semester, or whose recommended semester has no
+  start date, takes the earliest good sitting. Paul can still pick another
+  eligible sitting by hand.
+- **No sitting yet:** a subject with no possible sitting at all (eligible,
+  after its "not before" date, at least 21 days away) is shown as "Termine
+  folgen"; a later import adds them.
+- **Assignment:** registered, passed and past registered sittings are fixed
+  first and block their month; a sitting Paul planned by hand is kept next
+  if it is still possible. Open subjects are then processed by recommended
+  semester (subjects without one last), then earliest eligible sitting,
+  then name. A sitting is good for a subject when it is possible, lies in
+  a month without another planned, registered or passed exam, leaves enough
+  days for the subject's effort, and leaves every subject that was feasible
+  before still feasible. When no sitting is good, the planner takes the
+  latest free sitting that harms no other subject and marks it not
+  feasible; when every free sitting would harm another subject, the subject
+  gets no sitting. A sitting Paul planned by hand stays even when it harms
+  another subject, with a conflict that names it.
 - **Output:** the plan per subject (sitting, registration deadline, whether
-  it is feasible at the current pace) and conflicts (no feasible sitting
-  left, two registered exams in one month, registered before the "not
-  before" date).
+  it is feasible at the current pace, its study window) and conflicts (no
+  feasible sitting left, naming the subject it would squeeze where that is
+  the reason; two registered exams in one month; registered before the "not
+  before" date; a hand-planned sitting that is no longer possible or that
+  squeezes another subject; no material; a missing semester start).
 - The plan is recomputed when it is shown, not stored. Only Paul's choices
   are stored: a moved sitting ("planned") and registrations.
 

@@ -255,6 +255,56 @@ def test_harmful_only_candidate_is_not_scheduled():
     assert "Beta" in result.conflicts[0].message_de
 
 
+def test_kept_hand_planned_sitting_reports_whom_it_squeezes():
+    result, entries = run(
+        [
+            subject(
+                1,
+                name="Alpha",
+                sittings=[date(2027, 2, 27)],
+                effort=20,
+                attempts=[(date(2027, 2, 27), PLANNED)],
+            ),
+            subject(
+                2,
+                name="Beta",
+                sittings=[date(2027, 3, 20)],
+                effort=100,
+                attempts=[(date(2027, 3, 20), REGISTERED)],
+            ),
+        ],
+        pace=1.0,
+    )
+    assert (entries[1].state, entries[1].sitting) == ("planned", date(2027, 2, 27))
+    assert not entries[2].feasible
+    assert kinds(result) == [(1, "squeezes_other")]
+    assert result.conflicts[0].message_de == (
+        "Dein Termin für Alpha macht die Vorbereitung auf Beta zu knapp."
+    )
+
+
+def test_fallback_names_the_subject_a_fitting_sitting_would_squeeze():
+    result, entries = run(
+        [
+            subject(1, name="Alpha", sittings=[date(2027, 2, 27), date(2027, 4, 25)], effort=80),
+            subject(
+                2,
+                name="Beta",
+                sittings=[date(2027, 3, 20)],
+                effort=100,
+                attempts=[(date(2027, 3, 20), REGISTERED)],
+            ),
+        ],
+        pace=1.0,
+    )
+    assert (entries[1].sitting, entries[1].feasible) == (date(2027, 4, 25), False)
+    assert entries[2].feasible
+    assert kinds(result) == [(1, "no_feasible_sitting")]
+    message = result.conflicts[0].message_de
+    assert "Beta" in message and "reicht die Zeit für keinen Termin" not in message
+    assert "25.04.2027" in message
+
+
 def test_effort_too_large_takes_a_later_sitting():
     _, entries = run([subject(1, effort=100)], pace=1.0)
     entry = entries[1]
