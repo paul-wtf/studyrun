@@ -2,11 +2,11 @@
   import { untrack } from 'svelte';
   import { clock } from '#lib/mock.ts';
 
-  let { deadline, onexpire }: { deadline: string; onexpire: () => void } = $props();
+  let { deadline, offset = 0, onexpire }: { deadline: string; offset?: number; onexpire: () => void } = $props();
 
   let now = $state(Date.now());
   let fired = false;
-  const left = $derived(Math.max(0, Date.parse(deadline) - now));
+  const left = $derived(Math.max(0, Date.parse(deadline) - (now + offset)));
 
   $effect(() => {
     const tick = setInterval(() => (now = Date.now()), 250);
@@ -28,9 +28,6 @@
     font-size: 1.35rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    padding: 0.35rem 0.8rem;
-    border-radius: var(--r-sm);
-    background: var(--base);
     color: var(--text);
   }
   .low { color: var(--error); }

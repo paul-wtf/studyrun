@@ -184,10 +184,11 @@ const mockReviews = [
   review({ score: 100, correct: true, expected: 'Einzelkosten', explanation: 'Einzelkosten lassen sich dem Kostenträger direkt zurechnen.' })
 ];
 const mockAnswersDone = [...mockAnswers.slice(0, 6), { text: 'Damit verteilt man die Gemeinkosten auf die Kostenstellen.' }, { text: 'Einzelkosten' }];
+const longAnswer = 'Der Betriebsabrechnungsbogen verteilt die Gemeinkosten, die sich keinem Produkt direkt zurechnen lassen, mit Schlüsseln auf die Kostenstellen. Aus den Summen je Stelle ergeben sich die Zuschlagssätze für Material, Fertigung, Verwaltung und Vertrieb. Mit diesen Sätzen rechnet die Kalkulation die Gemeinkosten auf die Kostenträger. Außerdem zeigt er, wo im Betrieb welche Kosten entstehen, und erlaubt so eine Kontrolle der Kostenstellen über die Zeit.';
 const minutes = (m) => new Date(TODAY.getTime() + m * 60_000).toISOString();
 const mockExam = (extra = {}, finished = false) => ({
   id: 20, subject_id: 1, subject_name: subjects[0].name, started_at: minutes(-43), deadline: minutes(47),
-  finished_at: finished ? minutes(-2) : null, finished, finishing: false, expired: false,
+  finished_at: finished ? minutes(-2) : null, finished, finishing: false, expired: false, now: TODAY.toISOString(),
   entries: mockItems.map((item, n) => {
     const answer = (finished ? mockAnswersDone : mockAnswers)[n];
     return { n, answered: answer !== null, answer, item, source: finished ? mockSource(12 + n) : null, review: finished ? mockReviews[n] : null };
@@ -276,6 +277,24 @@ const SCENARIOS = [
   { name: 'subject-expired', path: '/subjects/1', openMock: true, expiredMock: true, wait: 'text=Abgelaufen' },
   { name: 'mock-exam', path: '/mock/20', mock: mockExam(), wait: '[role=timer]' },
   { name: 'mock-free', path: '/mock/20', mock: mockExam(), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Frage 4, beantwortet' }).click(), wait: 'textarea' },
+  {
+    name: 'mock-overview-tap', path: '/mock/20', mock: mockExam(), ready: '[role=timer]',
+    act: async (page) => {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.getByRole('button', { name: 'Frage 7, offen' }).click();
+    },
+    wait: 'text=Betriebsabrechnungsbogen'
+  },
+  {
+    name: 'mock-long-answer', path: '/mock/20', mock: mockExam(), ready: '[role=timer]',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Frage 7, offen' }).click();
+      await page.getByRole('textbox', { name: 'Antwort' }).fill(longAnswer);
+      await page.getByRole('textbox', { name: 'Antwort' }).evaluate((el) => (el.style.height = `${el.scrollHeight}px`));
+      await page.evaluate(() => window.scrollBy(0, 520));
+    },
+    wait: 'textarea'
+  },
   { name: 'mock-low-time', path: '/mock/20', mock: mockExam({ deadline: minutes(3.5) }), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Frage 3, offen' }).click(), wait: 'input[type=text]' },
   { name: 'mock-confirm', path: '/mock/20', mock: mockExam(), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Abgeben', exact: true }).click(), wait: 'text=Jetzt abgeben' },
   { name: 'mock-finishing', path: '/mock/20', mock: mockExam({ deadline: minutes(-1), expired: true }), finish: 'hang', waitUntil: 'load', wait: 'text=Wird ausgewertet' },

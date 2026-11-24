@@ -144,6 +144,17 @@ async def test_mock_shows_public_views_and_a_deadline(api, db_session, clock, ll
     assert (await client.get(f"/api/mock/{mock['id']}")).json() == mock
 
 
+async def test_mock_reports_the_server_time(api, db_session, clock, llm):
+    client, _ = api
+    subject, _, _ = await seed(db_session)
+    mock = await start(client, subject)
+    assert datetime.fromisoformat(mock["now"]) == clock.now
+
+    clock.now += timedelta(minutes=7)
+    later = (await client.get(f"/api/mock/{mock['id']}")).json()
+    assert datetime.fromisoformat(later["now"]) == clock.now
+
+
 async def test_answers_get_no_feedback(api, db_session, clock, llm):
     client, _ = api
     subject, _, items = await seed(db_session)

@@ -1023,6 +1023,11 @@ export interface components {
             finishing: boolean;
             /** Expired */
             expired: boolean;
+            /**
+             * Now
+             * Format: date-time
+             */
+            now: string;
             /** Entries */
             entries: components["schemas"]["MockEntryOut"][];
             result: components["schemas"]["MockResultOut"] | null;

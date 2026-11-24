@@ -93,6 +93,7 @@ class MockExamOut(BaseModel):
     finished: bool
     finishing: bool
     expired: bool
+    now: datetime
     entries: list[MockEntryOut]
     result: MockResultOut | None
 
@@ -184,6 +185,7 @@ async def _mock_out(
         finished=finished,
         finishing=finish_started(mock),
         expired=not finished and now >= mock.deadline,
+        now=now,
         entries=entries,
         result=result,
     )

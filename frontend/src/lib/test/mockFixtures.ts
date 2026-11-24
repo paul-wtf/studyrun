@@ -63,6 +63,7 @@ export function exam(extra: Partial<MockExam> = {}): MockExam {
     finished: false,
     finishing: false,
     expired: false,
+    now: new Date().toISOString(),
     entries: entries(),
     result: null,
     ...extra
