@@ -83,6 +83,7 @@
   --accent-soft: rgba(250, 179, 135, 0.25);
 
   --success: #a6e3a1;
+  --success-soft: rgba(166, 227, 161, 0.16);
   --warning: #f9e2af;
   --error: #f38ba8;
   --error-soft: rgba(243, 139, 168, 0.16);
@@ -130,11 +131,14 @@
   --accent-soft: rgba(254, 100, 11, 0.18);
 
   /* Catppuccin Latte green is 2.96:1 on base; this is the same hue darkened
-     to 4.60 (base) / 3.93 (crust). Red stays: 4.80 on base. */
+     to 4.60 (base) / 3.93 (crust). Red stays: 4.80 on base. Over base, text
+     on the soft fills keeps 5.4:1 or more, and the 2px success / error ring
+     reaches 3.7:1 against its own fill. */
   --success: #327c21;
+  --success-soft: rgba(50, 124, 33, 0.16);
   --warning: #df8e1d;
   --error: #d20f39;
-  --error-soft: rgba(210, 15, 57, 0.1);
+  --error-soft: rgba(210, 15, 57, 0.16);
 
   --wallpaper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMidYMax slice'><circle cx='1190' cy='300' r='110' fill='%23fe640b' opacity='0.06'/><circle cx='1190' cy='300' r='72' fill='%23fe640b' opacity='0.08'/><path d='M0 560 L140 480 L300 545 L470 430 L640 530 L820 455 L990 540 L1160 470 L1330 550 L1470 500 L1600 555 L1600 900 L0 900 Z' fill='%23d3d8e2' opacity='0.55'/><path d='M0 640 L180 560 L340 625 L520 540 L720 630 L900 560 L1090 645 L1280 575 L1440 640 L1600 590 L1600 900 L0 900 Z' fill='%23c9cfdc' opacity='0.8'/><path d='M0 730 L200 655 L380 715 L580 640 L790 725 L1000 660 L1210 730 L1420 670 L1600 720 L1600 900 L0 900 Z' fill='%23bfc6d4'/><path d='M0 810 L240 750 L460 800 L700 740 L950 805 L1200 750 L1430 800 L1600 765 L1600 900 L0 900 Z' fill='%23b0b7c7'/></svg>");
 

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { MANTLE, type Theme } from '#lib/stores/theme.ts';
 
 const css = readFileSync(resolve('src/lib/theme/tokens.css'), 'utf8');
 
@@ -25,12 +26,12 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const themes: [string, string][] = [
+const themes: [Theme, string][] = [
   ['mocha', ":root[data-theme='mocha']"],
   ['latte', ":root[data-theme='latte']"]
 ];
 
-describe.each(themes)('%s contrast', (_name, selector) => {
+describe.each(themes)('%s contrast', (name, selector) => {
   const vars = tokens(selector);
   const get = (n: string): string => {
     let v = vars[n];
@@ -47,5 +48,17 @@ describe.each(themes)('%s contrast', (_name, selector) => {
 
   it.each(['--success', '--error'])('%s reaches 4.5:1 on base', (token) => {
     expect(contrast(get(token), get('--base'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('keeps text readable on secondary buttons and chips', () => {
+    expect(contrast(get('--text'), get('--surface0'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('keeps the delete button label readable on the error fill', () => {
+    expect(contrast(get('--base'), get('--error'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('gives the browser chrome the mantle colour', () => {
+    expect(MANTLE[name]).toBe(get('--mantle'));
   });
 });

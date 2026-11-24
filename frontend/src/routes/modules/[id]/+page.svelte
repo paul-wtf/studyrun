@@ -33,12 +33,12 @@
 </script>
 
 <div class="stack">
-  <p><a href="/modules">Alle Module</a></p>
+  <p><a class="back" href="/modules">Alle Module</a></p>
   {#if error}<p class="error">{error}</p>{/if}
   {#if module}
     <h1>{module.name}</h1>
     {#each module.booklets as b (b.id)}
-      <div class="card">
+      <div class="card booklet">
         <strong>{b.filename}</strong>
         <p class="muted">{b.page_count} Seiten · {STATUS[b.status]}</p>
       </div>
@@ -52,4 +52,6 @@
 
 <style>
   .card p { margin: 0; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; font-weight: 600; }
+  .booklet { overflow-wrap: anywhere; }
 </style>

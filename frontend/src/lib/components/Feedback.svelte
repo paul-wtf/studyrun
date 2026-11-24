@@ -71,8 +71,9 @@
 </div>
 
 <style>
-  .good { color: var(--good); }
-  .bad { color: var(--bad); }
+  .good { color: var(--success); }
+  .bad { color: var(--error); }
+  .actions button:not(.grow) { flex-shrink: 0; }
   .actions { display: flex; gap: 0.75rem; align-items: center; }
   .grow { flex: 1; }
   .menu { display: grid; gap: 0.5rem; }

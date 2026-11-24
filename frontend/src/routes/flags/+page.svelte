@@ -24,11 +24,11 @@
 <div class="stack">
   <h1>Gemeldet</h1>
   {#if error}<p class="error">{error}</p>{/if}
-  {#if flags && flags.length === 0}<p class="muted">Keine gemeldeten Fragen.</p>{/if}
+  {#if flags && flags.length === 0}<p class="muted note">Keine gemeldeten Fragen.</p>{/if}
   {#each flags ?? [] as f (f.id)}
     <div class="card stack">
       <p class="muted">
-        <strong>{f.reason ? REASON[f.reason] : 'Gemeldet'}</strong> · {f.chapter_title} · Seite {f.source_page}
+        <strong class="chip">{f.reason ? REASON[f.reason] : 'Gemeldet'}</strong> · {f.chapter_title} · Seite {f.source_page}
         · <a href={f.source} target="_blank" rel="noopener">Im Heft nachlesen</a>
       </p>
       <FlagEditor item={f} onchanged={load} />

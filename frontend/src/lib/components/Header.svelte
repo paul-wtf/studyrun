@@ -1,5 +1,16 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import ThemeToggle from './ThemeToggle.svelte';
+
+  const LINKS = [
+    ['/', 'Start'],
+    ['/modules', 'Module'],
+    ['/flags', 'Gemeldet'],
+    ['/costs', 'Kosten']
+  ] as const;
+
+  const current = (href: string, path: string) =>
+    href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
 </script>
 
 <header class="zen-bar">
@@ -8,10 +19,9 @@
     studyrun
   </a>
   <nav aria-label="Hauptnavigation">
-    <a href="/">Start</a>
-    <a href="/modules">Module</a>
-    <a href="/flags">Gemeldet</a>
-    <a href="/costs">Kosten</a>
+    {#each LINKS as [href, label] (href)}
+      <a {href} aria-current={current(href, page.url.pathname) ? 'page' : undefined}>{label}</a>
+    {/each}
   </nav>
   <div class="actions"><ThemeToggle /></div>
 </header>
@@ -76,7 +86,12 @@
     transition: color var(--dur-fast) var(--ease-out);
   }
   nav a:hover {
+    color: var(--text);
+  }
+  nav a[aria-current='page'] {
     color: var(--accent-text);
+    text-decoration: underline 2px;
+    text-underline-offset: 0.45em;
   }
 
   /* Two fixed rows below 1000px (brand and toggle, then the links); --bar-h

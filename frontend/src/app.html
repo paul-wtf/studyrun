@@ -8,8 +8,12 @@
     <meta name="theme-color" content="#181825" />
     <script>
       (function () {
-        var t = localStorage.getItem('studyrun-theme');
-        if (t === 'latte' || t === 'mocha') document.documentElement.setAttribute('data-theme', t);
+        var t = 'mocha';
+        try {
+          t = localStorage.getItem('studyrun-theme') === 'latte' ? 'latte' : 'mocha';
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', t);
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'latte' ? '#e6e9ef' : '#181825');
       })();
     </script>
     <title>studyrun</title>

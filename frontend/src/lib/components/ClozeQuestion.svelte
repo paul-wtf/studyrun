@@ -35,11 +35,13 @@
 </script>
 
 <div class="stack">
-  <p class="muted">Lücke füllen</p>
-  <h2>{entry.item.text}</h2>
-  <form class="stack" onsubmit={submit}>
+  <form class="card stack" onsubmit={submit}>
+    <p class="muted">Lücke füllen</p>
+    <h2>{entry.item.text}</h2>
     <input
       type="text"
+      class:correct={result?.correct === true}
+      class:wrong={result?.correct === false}
       bind:value={text}
       disabled={busy}
       aria-label="Antwort"

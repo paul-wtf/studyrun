@@ -65,15 +65,15 @@
 <div class="stack">
   <h2>Kapitel</h2>
   {#if working}
-    <p class="muted">Ein Heft braucht in der Regel bis zu einer Stunde. Die Liste aktualisiert sich selbst.</p>
+    <p class="muted note">Ein Heft braucht in der Regel bis zu einer Stunde. Die Liste aktualisiert sich selbst.</p>
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
-  {#if loaded && chapters.length === 0}<p class="muted">Noch keine Kapitel.</p>{/if}
+  {#if loaded && chapters.length === 0}<p class="muted note">Noch keine Kapitel.</p>{/if}
   {#each chapters as c (c.id)}
     <div class="card stack">
       <div class="head">
         <strong>{c.title}</strong>
-        <span class="status {c.status}">{LABEL[c.status]}</span>
+        <span class="chip {c.status}">{LABEL[c.status]}</span>
       </div>
       <p class="muted">Seiten {c.first_page}–{c.last_page}{c.status === 'ready' ? `, ${c.active_items} Fragen` : ''}</p>
       {#if c.waiting_reason}<p class="muted">{c.waiting_reason}</p>{/if}
@@ -91,10 +91,10 @@
 </div>
 
 <style>
-  .head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
-  .status { font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
-  .status.ready { color: var(--good); }
-  .status.failed { color: var(--bad); }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; align-items: baseline; }
+  .head strong { min-width: 0; overflow-wrap: break-word; }
+  .chip.ready { background: var(--accent-soft); }
+  .chip.failed { background: var(--error-soft); }
   .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .card :global(p) { margin-bottom: 0; }
 </style>

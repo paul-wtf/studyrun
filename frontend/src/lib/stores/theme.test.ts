@@ -8,9 +8,13 @@ async function load() {
 
 describe('theme store', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     localStorage.clear();
     delete document.documentElement.dataset.theme;
+    document.head.innerHTML = '<meta name="theme-color" content="#181825" />';
   });
+
+  const themeColor = () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content');
 
   it('defaults to mocha', async () => {
     const { theme } = await load();
@@ -24,9 +28,11 @@ describe('theme store', () => {
     expect(get(theme)).toBe('latte');
     expect(localStorage.getItem('studyrun-theme')).toBe('latte');
     expect(document.documentElement.dataset.theme).toBe('latte');
+    expect(themeColor()).toBe('#e6e9ef');
     toggleTheme();
     expect(get(theme)).toBe('mocha');
     expect(localStorage.getItem('studyrun-theme')).toBe('mocha');
+    expect(themeColor()).toBe('#181825');
   });
 
   it('restores a stored theme', async () => {
@@ -40,5 +46,21 @@ describe('theme store', () => {
     const { theme } = await load();
     expect(get(theme)).toBe('mocha');
     expect(document.documentElement.dataset.theme).toBe('mocha');
+  });
+
+  it('falls back to mocha and still toggles when storage throws', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    const { theme, toggleTheme } = await load();
+    expect(get(theme)).toBe('mocha');
+    expect(document.documentElement.dataset.theme).toBe('mocha');
+    toggleTheme();
+    expect(get(theme)).toBe('latte');
+    expect(document.documentElement.dataset.theme).toBe('latte');
+    expect(themeColor()).toBe('#e6e9ef');
   });
 });
