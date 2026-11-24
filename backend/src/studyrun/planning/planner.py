@@ -121,6 +121,7 @@ class _Planner:
         self.conflicts: list[Conflict] = []
         self.taken: dict[Month, str] = {}
         self.scheduled: dict[int, date] = {}
+        self.lapsed: list[tuple[PlanSubject, date, str]] = []
 
     def conflict(self, subject: PlanSubject, kind: ConflictKind, message: str) -> None:
         self.conflicts.append(Conflict(subject.id, kind, message))
@@ -139,12 +140,12 @@ class _Planner:
             cursor = until
         return slots
 
-    def try_sitting(self, subject_id: int, sitting: date) -> tuple[bool, bool]:
-        before = {s.subject_id for s in self.layout(self.scheduled) if s.feasible}
+    def try_sitting(self, subject_id: int, sitting: date) -> tuple[bool, list[int]]:
+        before = [s.subject_id for s in self.layout(self.scheduled) if s.feasible]
         after = {
             s.subject_id: s.feasible for s in self.layout({**self.scheduled, subject_id: sitting})
         }
-        return after[subject_id], all(after[i] for i in before)
+        return after[subject_id], [i for i in before if not after[i]]
 
     def fix_attempts(self) -> tuple[list[tuple[date, PlanSubject]], list[PlanSubject]]:
         fixed: list[tuple[date, PlanSubject, EntryState]] = []
@@ -195,7 +196,9 @@ class _Planner:
         eligible = self.semesters.get(s.earliest_semester)
         if sitting < self.deadline:
             return f"Die Anmeldung war bis zum {_de(sitting - timedelta(REGISTRATION_DAYS))}"
-        if eligible is None or sitting < eligible:
+        if eligible is None:
+            return f"Für Semester {s.earliest_semester} fehlt das Startdatum"
+        if sitting < eligible:
             return f"Das Fach ist erst ab Semester {s.earliest_semester} zugelassen"
         if s.not_before is not None and sitting < s.not_before:
             return f"Das Fach ist erst ab dem {_de(s.not_before)} möglich"
@@ -212,25 +215,32 @@ class _Planner:
                 self.entries[s.id].state = "planned"
                 self.schedule(s, sitting)
             else:
-                self.conflict(
-                    s,
-                    "planned_not_allowed",
-                    f"Der gewählte Termin {_de(sitting)} geht nicht mehr: {problem}. "
-                    "Der Plan schlägt einen neuen vor.",
-                )
+                self.lapsed.append((s, sitting, problem))
                 replan.append(s)
         return replan
 
-    def candidates(self, s: PlanSubject, eligible: date) -> list[date]:
+    def report_lapsed(self) -> None:
+        for s, sitting, problem in self.lapsed:
+            message = f"Der gewählte Termin {_de(sitting)} geht nicht mehr: {problem}."
+            proposed = self.entries[s.id].sitting
+            if proposed is not None:
+                message += f" Vorgeschlagen ist jetzt der {_de(proposed)}."
+            self.conflict(s, "planned_not_allowed", message)
+
+    def candidates(self, s: PlanSubject, eligible: date) -> tuple[list[date], list[date]]:
         lower = max(eligible, self.deadline, s.not_before or eligible)
-        if s.recommended_semester is not None:
-            window = self.semesters.get(f"{s.recommended_semester}a")
-            if window is not None:
-                lower = max(lower, window)
-        return sorted({d for d in s.sittings if d >= lower})
+        possible = sorted({d for d in s.sittings if d >= lower})
+        window = (
+            self.semesters.get(f"{s.recommended_semester}a")
+            if s.recommended_semester is not None
+            else None
+        )
+        if window is None:
+            return possible, []
+        return [d for d in possible if d >= window], [d for d in possible if d < window]
 
     def propose(self, open_: list[PlanSubject]) -> None:
-        queue: list[tuple[PlanSubject, date, list[date]]] = []
+        queue: list[tuple[PlanSubject, date, list[date], list[date]]] = []
         for s in open_:
             entry = self.entries[s.id]
             eligible = self.semesters.get(s.earliest_semester)
@@ -248,12 +258,12 @@ class _Planner:
                     s, "no_material", "Stoff fehlt: Für dieses Fach gibt es noch kein Heft."
                 )
                 continue
-            candidates = self.candidates(s, eligible)
-            if not candidates:
+            preferred, earlier = self.candidates(s, eligible)
+            if not preferred and not earlier:
                 entry.state = "sittings_pending"
                 continue
             first_eligible = min(d for d in s.sittings if d >= eligible)
-            queue.append((s, first_eligible, candidates))
+            queue.append((s, first_eligible, preferred, earlier))
 
         queue.sort(
             key=lambda q: (
@@ -264,22 +274,33 @@ class _Planner:
                 q[0].id,
             )
         )
-        for s, _, candidates in queue:
-            free = [d for d in candidates if _month(d) not in self.taken]
-            if not free:
-                self.conflict(
-                    s,
-                    "no_feasible_sitting",
-                    "Kein freier Termin: In jedem möglichen Monat steht schon eine Prüfung an.",
-                )
-                continue
-            checks = {d: self.try_sitting(s.id, d) for d in free}
-            fitting = [d for d in free if all(checks[d])]
-            if fitting:
-                self.schedule(s, fitting[0])
-                continue
-            harmless = [d for d in free if checks[d][1]]
-            choice = (harmless or free)[-1]
+        for s, _, preferred, earlier in queue:
+            self.choose(s, preferred, earlier)
+
+    def choose(self, s: PlanSubject, preferred: list[date], earlier: list[date]) -> None:
+        free = [d for d in earlier + preferred if _month(d) not in self.taken]
+        if not free:
+            self.conflict(
+                s,
+                "no_feasible_sitting",
+                "Kein freier Termin: Jeder mögliche Termin liegt in einem Monat, "
+                "in dem schon eine Prüfung ansteht.",
+            )
+            return
+        checks = {d: self.try_sitting(s.id, d) for d in free}
+
+        def good(d: date) -> bool:
+            fits, harmed = checks[d]
+            return fits and not harmed
+
+        in_window = [d for d in free if d in preferred and good(d)]
+        before_window = [d for d in free if d in earlier and good(d)]
+        if in_window or before_window:
+            self.schedule(s, in_window[0] if in_window else before_window[-1])
+            return
+        harmless = [d for d in free if not checks[d][1]]
+        if harmless:
+            choice = harmless[-1]
             self.conflict(
                 s,
                 "no_feasible_sitting",
@@ -287,6 +308,15 @@ class _Planner:
                 f"Vorgeschlagen ist der {_de(choice)}.",
             )
             self.schedule(s, choice)
+            return
+        displaced = list(dict.fromkeys(i for d in free for i in checks[d][1]))
+        names = ", ".join(self.by_id[i].name for i in displaced)
+        self.conflict(
+            s,
+            "no_feasible_sitting",
+            f"Kein Termin passt: Jeder freie Termin würde die Vorbereitung auf {names} "
+            "zu knapp machen.",
+        )
 
     def finish(self) -> Plan:
         slots = self.layout(self.scheduled)
@@ -313,4 +343,5 @@ def plan(
     planned, open_ = planner.fix_attempts()
     open_ += planner.keep_planned(planned)
     planner.propose(open_)
+    planner.report_lapsed()
     return planner.finish()

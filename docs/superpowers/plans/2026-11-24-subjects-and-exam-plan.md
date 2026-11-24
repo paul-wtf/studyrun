@@ -14,7 +14,7 @@
 
 - Rules: at most one exam per calendar month (counting future planned and registered attempts and passed ones). Registration closes 21 days before a sitting. Never plan before the eligible date (start of `earliest_semester`) or before `not_before`. Aim at the recommended semester when feasible.
 - Semester calendar: a start date per half-semester label (`3a`, `3b`, …, `7b`). A missing label makes subjects that need it "nicht planbar", and the import accepts that.
-- Effort: unlearned active items (no ReviewState, or FSRS state Learning/Relearning) + chapters not introduced; chapters without items (pending/generating/failed) estimate 2 items per page; a subject without material → "Stoff fehlt", no proposal.
+- Effort: unlearned active items (no ReviewState, or FSRS state Learning/Relearning), including those of chapters not yet introduced; chapters without items (pending/generating/verifying/failed) estimate 2 items per page, skipped chapters excluded; a subject without material → "Stoff fehlt", no proposal.
 - Pace: items moved out of "new" per study day over the last 28 Berlin days (study day = a day with ≥ 1 review log); fallback `settings.run_new_items` per day when fewer than 7 study days exist.
 - Study order: one subject at a time in plan order; the next one starts when the previous one's material is learned. Modules without a subject come after all planned subjects.
 - Pull-forward: within 21 days before a planned or registered sitting, the daily run adds items of that subject due within those 21 days, up to `run_review_cap` total reviews.

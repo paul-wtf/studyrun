@@ -84,6 +84,34 @@ def test_unknown_recommended_semester_start_takes_earliest():
     assert entries[1].sitting == date(2027, 2, 14)
 
 
+def test_surplus_subjects_take_free_months_before_the_window():
+    result, entries = run([subject(i, rec=6) for i in (1, 2, 3, 4)])
+    assert [entries[i].sitting for i in (1, 2, 3, 4)] == [
+        date(2027, 11, 14),
+        date(2028, 2, 20),
+        date(2027, 8, 22),
+        date(2027, 5, 16),
+    ]
+    assert result.order == [4, 3, 1, 2]
+    assert result.conflicts == []
+
+
+def test_window_beyond_all_sittings_plans_the_latest_before_it():
+    semesters = {**SEMESTERS, "7a": date(2028, 4, 1)}
+    _, entries = run([subject(1, rec=7), subject(2, rec=7)], semesters=semesters)
+    assert (entries[1].state, entries[1].sitting) == ("open", date(2028, 2, 20))
+    assert entries[2].sitting == date(2027, 11, 14)
+
+
+def test_window_beyond_all_sittings_without_eligible_ones_is_pending():
+    semesters = {**SEMESTERS, "7a": date(2028, 4, 1)}
+    result, entries = run(
+        [subject(1, earliest="6a", rec=7, sittings=SITTINGS[:4])], semesters=semesters
+    )
+    assert (entries[1].state, entries[1].sitting) == ("sittings_pending", None)
+    assert result.conflicts == []
+
+
 def test_eligibility_from_semester_start():
     _, entries = run([subject(1, earliest="5b")])
     assert entries[1].sitting == date(2027, 8, 22)
@@ -203,6 +231,28 @@ def test_open_subject_does_not_break_a_registered_one():
         date(2027, 2, 22),
     )
     assert result.order == [2, 1]
+
+
+def test_harmful_only_candidate_is_not_scheduled():
+    result, entries = run(
+        [
+            subject(1, name="Alpha", sittings=[date(2027, 2, 27)], effort=20),
+            subject(
+                2,
+                name="Beta",
+                sittings=[date(2027, 3, 20)],
+                effort=100,
+                attempts=[(date(2027, 3, 20), REGISTERED)],
+            ),
+        ],
+        pace=1.0,
+    )
+    assert (entries[1].state, entries[1].sitting, entries[1].feasible) == ("open", None, False)
+    assert entries[2].feasible
+    assert entries[2].study_until == date(2027, 3, 4)
+    assert result.order == [2]
+    assert kinds(result) == [(1, "no_feasible_sitting")]
+    assert "Beta" in result.conflicts[0].message_de
 
 
 def test_effort_too_large_takes_a_later_sitting():
@@ -340,6 +390,16 @@ def test_planned_after_the_deadline_is_replanned_with_a_conflict():
     assert (entries[1].state, entries[1].sitting) == ("open", date(2027, 2, 14))
     assert kinds(result) == [(1, "planned_not_allowed")]
     assert "06.12.2026" in result.conflicts[0].message_de
+    assert "Vorgeschlagen ist jetzt der 14.02.2027" in result.conflicts[0].message_de
+
+
+def test_planned_without_semester_start_says_so_and_proposes_nothing():
+    result, entries = run([subject(1, earliest="7a", attempts=[(date(2027, 2, 14), PLANNED)])])
+    assert entries[1].state == "not_plannable"
+    assert kinds(result) == [(1, "missing_semester"), (1, "planned_not_allowed")]
+    lapsed = next(c for c in result.conflicts if c.kind == "planned_not_allowed")
+    assert "Startdatum" in lapsed.message_de
+    assert "Vorgeschlagen" not in lapsed.message_de
 
 
 def test_planned_in_a_registered_month_is_replanned_with_a_conflict():

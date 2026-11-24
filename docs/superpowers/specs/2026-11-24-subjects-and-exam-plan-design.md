@@ -144,9 +144,10 @@ PDF and handed to him; it doesn't go into git.
 ### Planner
 
 - **Effort per subject:** the number of active items not yet learned (unseen,
-  or still in learning) plus chapters not yet introduced. Chapters that have
-  no items yet (pending, generating, failed) count with an estimate of two
-  items per page, the generation target. A subject without any module or
+  or still in learning), including those of chapters not yet introduced.
+  Chapters that have no items yet (pending, generating, verifying, failed)
+  count with an estimate of two items per page, the generation target.
+  Skipped chapters don't count. A subject without any module or
   booklet is "Stoff fehlt": the planner shows its sittings but proposes none
   and lists it as a conflict until material is uploaded. (My call.) Effort is
   converted to days using Paul's measured pace (items learned per study day over the last 28

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -41,7 +42,14 @@ def local_today(settings: Settings, now: datetime) -> date:
     return now.astimezone(ZoneInfo(settings.timezone)).date()
 
 
-async def current_plan(session: AsyncSession, settings: Settings, now: datetime) -> Plan:
+@dataclass(frozen=True)
+class CurrentPlan:
+    plan: Plan
+    subjects: list[PlanSubject]
+    pace_per_day: float
+
+
+async def current_plan(session: AsyncSession, settings: Settings, now: datetime) -> CurrentPlan:
     subjects, semesters = await plan_inputs(session)
     pace = await measured_pace(session, settings, now)
-    return plan(subjects, semesters, local_today(settings, now), pace)
+    return CurrentPlan(plan(subjects, semesters, local_today(settings, now), pace), subjects, pace)

@@ -5,9 +5,8 @@ from datetime import date
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from studyrun.planning import local_today, plan_inputs
-from studyrun.planning.pace import measured_pace
-from studyrun.planning.planner import ConflictKind, EntryState, plan
+from studyrun.planning import current_plan
+from studyrun.planning.planner import ConflictKind, EntryState
 from studyrun.routes.modules import Session
 from studyrun.routes.runs import AppSettings, Now
 
@@ -41,10 +40,9 @@ class PlanOut(BaseModel):
 
 @router.get("/plan")
 async def get_plan(session: Session, settings: AppSettings, now: Now) -> PlanOut:
-    subjects, semesters = await plan_inputs(session)
-    pace = await measured_pace(session, settings, now)
-    result = plan(subjects, semesters, local_today(settings, now), pace)
-    names = {s.id: s.name for s in subjects}
+    current = await current_plan(session, settings, now)
+    result = current.plan
+    names = {s.id: s.name for s in current.subjects}
     return PlanOut(
         entries=[
             PlanEntryOut(
@@ -69,5 +67,5 @@ async def get_plan(session: Session, settings: AppSettings, now: Now) -> PlanOut
             for c in result.conflicts
         ],
         order=result.order,
-        pace_per_day=pace,
+        pace_per_day=current.pace_per_day,
     )
