@@ -57,6 +57,13 @@ class FlagReason(enum.StrEnum):
     unclear = "unclear"
 
 
+class AttemptStatus(enum.StrEnum):
+    planned = "planned"
+    registered = "registered"
+    passed = "passed"
+    failed = "failed"
+
+
 class Feature(enum.StrEnum):
     generate = "generate"
     verify = "verify"
@@ -73,12 +80,76 @@ def _enum(cls: type[enum.StrEnum]) -> Enum:
     )
 
 
+class Subject(Base):
+    __tablename__ = "subjects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    earliest_semester: Mapped[str] = mapped_column(String(16), nullable=False)
+    recommended_semester: Mapped[int | None] = mapped_column(Integer)
+    not_before: Mapped[date | None] = mapped_column(Date)
+    pass_mark: Mapped[int] = mapped_column(Integer, nullable=False, default=50, server_default="50")
+    sittings: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class Semester(Base):
+    __tablename__ = "semesters"
+
+    label: Mapped[str] = mapped_column(String(16), primary_key=True)
+    starts_on: Mapped[date] = mapped_column(Date, nullable=False)
+
+
+class ExamAttempt(Base):
+    __tablename__ = "exam_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sitting: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[AttemptStatus] = mapped_column(
+        _enum(AttemptStatus), nullable=False, default=AttemptStatus.planned
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MockExam(Base):
+    __tablename__ = "mock_exams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    entries: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    score: Mapped[int | None] = mapped_column(Integer)
+    passed: Mapped[bool | None] = mapped_column(Boolean)
+
+
 class Module(Base):
     __tablename__ = "modules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
+    subject_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subjects.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -178,6 +249,9 @@ class Run(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     local_date: Mapped[date] = mapped_column(Date, nullable=False)
     entries: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    subject_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subjects.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
