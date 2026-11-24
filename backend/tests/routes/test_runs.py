@@ -530,3 +530,20 @@ async def test_unknown_subject_is_404(api, db_session, clock):
     assert (await client.post("/api/runs", json={"subject_id": 999999})).status_code == 404
     resp = await client.get("/api/runs/current", params={"subject_id": 999999})
     assert resp.status_code == 404
+
+
+async def test_daily_run_skips_items_open_in_an_older_subject_run(api, db_session, clock):
+    client, _ = api
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=berlin(20, 9))
+    for _ in range(6):
+        await make_item(db_session, chapter, ItemKind.mc, payload=MC)
+    subject = await make_subject(db_session, "Fach", sitting=date(2027, 2, 10), modules=(module,))
+    clock.now = berlin(23, 10)
+    in_subject_run = run_item_ids(await start_subject(client, subject.id))
+    assert len(in_subject_run) == 4
+
+    clock.now = berlin(24, 10)
+    daily = await start(client)
+    assert run_item_ids(daily)
+    assert not run_item_ids(daily) & in_subject_run
