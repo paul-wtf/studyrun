@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import select
 
 from studyrun.deps import get_now
@@ -64,7 +65,7 @@ async def test_plan_proposes_registers_and_reports_conflicts(api, db_session):
 
     body = (await client.get("/api/plan")).json()
     entries = {e["subject_name"]: e for e in body["entries"]}
-    assert body["pace_per_day"] == 4.0
+    assert body["pace_per_day"] == pytest.approx(4 * 4 / 7)
     assert entries["Alpha"] == {
         "subject_id": alpha,
         "subject_name": "Alpha",
@@ -73,11 +74,11 @@ async def test_plan_proposes_registers_and_reports_conflicts(api, db_session):
         "register_by": "2027-01-24",
         "feasible": True,
         "study_from": "2026-11-24",
-        "study_until": "2026-11-29",
+        "study_until": "2026-12-03",
     }
     assert (entries["Beta"]["sitting"], entries["Beta"]["study_from"]) == (
         "2027-05-16",
-        "2026-11-29",
+        "2026-12-03",
     )
     assert entries["Gamma"]["state"] == "no_material"
     assert entries["Delta"]["state"] == "not_plannable"

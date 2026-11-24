@@ -50,7 +50,13 @@ async def test_falls_back_with_fewer_than_seven_study_days(db_session, chapter):
     for n in range(6):
         for _ in range(5):
             await answer(db_session, chapter, day(n))
-    assert await measured_pace(db_session, Settings(run_new_items=4), NOW) == 4.0
+    settings = Settings(run_new_items=4, weekly_goal_days=4)
+    assert await measured_pace(db_session, settings, NOW) == pytest.approx(16 / 7)
+
+
+async def test_fallback_follows_the_weekly_goal(db_session, chapter):
+    settings = Settings(run_new_items=7, weekly_goal_days=3)
+    assert await measured_pace(db_session, settings, NOW) == pytest.approx(3.0)
 
 
 async def test_new_items_per_day_over_28_days(db_session, chapter):
@@ -76,8 +82,10 @@ async def test_falls_back_when_nothing_new_was_learned(db_session, chapter):
     old = await answer(db_session, chapter, WINDOW_START - timedelta(days=3))
     for n in range(8):
         await answer(db_session, chapter, day(n), item=old)
-    assert await measured_pace(db_session, Settings(run_new_items=3), NOW) == 3.0
+    settings = Settings(run_new_items=3, weekly_goal_days=7)
+    assert await measured_pace(db_session, settings, NOW) == pytest.approx(3.0)
 
 
 async def test_fallback_is_never_zero(db_session, chapter):
-    assert await measured_pace(db_session, Settings(run_new_items=0), NOW) == 1.0
+    settings = Settings(run_new_items=0, weekly_goal_days=7)
+    assert await measured_pace(db_session, settings, NOW) == pytest.approx(1.0)

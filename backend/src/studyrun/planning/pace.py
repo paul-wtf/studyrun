@@ -34,4 +34,4 @@ async def measured_pace(session: AsyncSession, settings: Settings, now: datetime
     )
     if (study_days or 0) >= MIN_STUDY_DAYS and learned:
         return learned / WINDOW_DAYS
-    return float(max(settings.run_new_items, 1))
+    return max(settings.run_new_items, 1) * settings.weekly_goal_days / 7
