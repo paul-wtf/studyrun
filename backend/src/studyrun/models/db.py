@@ -137,6 +137,7 @@ class MockExam(Base):
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     entries: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    pass_mark: Mapped[int] = mapped_column(Integer, nullable=False)
     score: Mapped[int | None] = mapped_column(Integer)
     passed: Mapped[bool | None] = mapped_column(Boolean)
 

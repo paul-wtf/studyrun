@@ -12,16 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from studyrun.models.db import Chapter, Item, ItemKind, MockExam, Subject
 from studyrun.routes.modules import Session
 from studyrun.routes.runs import (
-    _ITEM_VIEW,
+    QUESTION,
     AnswerIn,
-    ItemViewOut,
+    AppSettings,
     Llm,
     Now,
+    QuestionOut,
     SelfRateIn,
     pdf_link,
 )
 from studyrun.routes.subjects import _get_subject
 from studyrun.study.answers import expected_answer, public_view
+from studyrun.study.assemble import open_items
 from studyrun.study.mock import (
     MockEntry,
     chapter_scores,
@@ -59,7 +61,8 @@ class MockEntryOut(BaseModel):
     n: int
     answered: bool
     answer: GivenAnswerOut | None
-    item: ItemViewOut
+    item: QuestionOut
+    source: str | None
     review: MockReviewOut | None
 
 
@@ -136,14 +139,14 @@ async def _mock_out(
     entries = []
     for n, entry in enumerate(mock.entries):
         item, booklet_id = items[entry["item_id"]]
-        view = public_view(item) | {"source": pdf_link(booklet_id, item.source_page)}
         answer = entry.get("answer")
         entries.append(
             MockEntryOut(
                 n=n,
                 answered=answer is not None,
                 answer=None if answer is None else GivenAnswerOut(**answer),
-                item=_ITEM_VIEW.validate_python(view),
+                item=QUESTION.validate_python(public_view(item)),
+                source=pdf_link(booklet_id, item.source_page) if finished else None,
                 review=_review(item, entry) if finished else None,
             )
         )
@@ -161,7 +164,7 @@ async def _mock_out(
         result = MockResultOut(
             score=mock.score,
             passed=mock.passed,
-            pass_mark=subject.pass_mark,
+            pass_mark=mock.pass_mark,
             pending_self_rating=pending_self_rating(mock.entries),
             chapters=[
                 ChapterScoreOut(chapter_id=c, title=titles[c], items=count, score=score)
@@ -182,10 +185,11 @@ async def _mock_out(
     )
 
 
-async def _get_mock(session: AsyncSession, mock_id: int) -> tuple[MockExam, Subject]:
-    mock = (
-        await session.scalars(select(MockExam).where(MockExam.id == mock_id).with_for_update())
-    ).one_or_none()
+async def _get_mock(
+    session: AsyncSession, mock_id: int, *, lock: bool = True
+) -> tuple[MockExam, Subject]:
+    stmt = select(MockExam).where(MockExam.id == mock_id)
+    mock = (await session.scalars(stmt.with_for_update() if lock else stmt)).one_or_none()
     if mock is None:
         raise HTTPException(404, "Bosskampf nicht gefunden")
     return mock, await _get_subject(session, mock.subject_id)
@@ -205,12 +209,19 @@ LOCKED = "Der Bosskampf öffnet, sobald 80 % der Kapitel eingeführt sind."
 NO_ITEMS = "Für dieses Fach gibt es noch keine Fragen."
 
 
-async def _new_mock(session: AsyncSession, subject: Subject, now: datetime) -> MockExam | str:
+async def _new_mock(
+    session: AsyncSession, settings: AppSettings, subject: Subject, now: datetime
+) -> MockExam | str:
     introduced, total = (await chapter_shares(session, [subject.id]))[subject.id]
     if not is_unlocked(introduced, total):
         return LOCKED
     ids = await select_mock_items(
-        session, subject.id, subject.duration_minutes, now=now, seed=int(now.timestamp())
+        session,
+        subject.id,
+        subject.duration_minutes,
+        now=now,
+        seed=int(now.timestamp()),
+        blocked=await open_items(session, settings, now),
     )
     if not ids:
         return NO_ITEMS
@@ -222,6 +233,7 @@ async def _new_mock(session: AsyncSession, subject: Subject, now: datetime) -> M
         started_at=now,
         deadline=now + timedelta(minutes=subject.duration_minutes),
         entries=[{"item_id": i, "chapter_id": chapters[i], "answer": None} for i in ids],
+        pass_mark=subject.pass_mark,
     )
     session.add(mock)
     await session.flush()
@@ -229,7 +241,9 @@ async def _new_mock(session: AsyncSession, subject: Subject, now: datetime) -> M
 
 
 @router.post("/subjects/{subject_id}/mock")
-async def start_mock(subject_id: int, session: Session, now: Now, llm: Llm) -> MockExamOut:
+async def start_mock(
+    subject_id: int, session: Session, settings: AppSettings, now: Now, llm: Llm
+) -> MockExamOut:
     subject = await _get_subject(session, subject_id)
     mock = (
         await session.scalars(
@@ -241,13 +255,10 @@ async def start_mock(subject_id: int, session: Session, now: Now, llm: Llm) -> M
         )
     ).first()
     if mock is not None and now - mock.deadline > mock.deadline - mock.started_at:
-        await finish_mock(session, llm, mock, subject.pass_mark, now)
-        new = await _new_mock(session, subject, now)
-        # A 409 here would roll back the grading that was just paid for.
-        if isinstance(new, MockExam):
-            mock = new
-    elif mock is None:
-        new = await _new_mock(session, subject, now)
+        await finish_mock(session, llm, mock.id, now)
+        mock = None
+    if mock is None:
+        new = await _new_mock(session, settings, subject, now)
         if not isinstance(new, MockExam):
             raise HTTPException(409, new)
         mock = new
@@ -256,7 +267,7 @@ async def start_mock(subject_id: int, session: Session, now: Now, llm: Llm) -> M
 
 @router.get("/mock/{mock_id}")
 async def get_mock(mock_id: int, session: Session, now: Now) -> MockExamOut:
-    mock, subject = await _get_mock(session, mock_id)
+    mock, subject = await _get_mock(session, mock_id, lock=False)
     return await _mock_out(session, mock, subject, now)
 
 
@@ -266,7 +277,7 @@ async def answer_mock(
 ) -> MockAnswerOut:
     mock, _ = await _get_mock(session, mock_id)
     entry = _entry(mock, n)
-    if mock.finished_at is not None:
+    if mock.finished_at is not None or any(e.get("checked") for e in mock.entries):
         raise HTTPException(409, "Der Bosskampf ist schon abgegeben.")
     if now >= mock.deadline:
         raise HTTPException(409, "Zeit abgelaufen")
@@ -287,7 +298,7 @@ async def answer_mock(
 async def finish(mock_id: int, session: Session, now: Now, llm: Llm) -> MockExamOut:
     mock, subject = await _get_mock(session, mock_id)
     if mock.finished_at is None:
-        await finish_mock(session, llm, mock, subject.pass_mark, now)
+        mock = await finish_mock(session, llm, mock.id, now)
     return await _mock_out(session, mock, subject, now)
 
 
@@ -311,7 +322,7 @@ async def self_rate(
         score=None,
     )
     _store(mock, n, {**entry, "score": 100 if good else 0, "correct": good})
-    rescore(mock, subject.pass_mark)
+    rescore(mock)
     await session.flush()
     return await _mock_out(session, mock, subject, now)
 

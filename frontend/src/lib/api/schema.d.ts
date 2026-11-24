@@ -705,6 +705,18 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** ClozeQuestionOut */
+        ClozeQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "cloze";
+            /** Text */
+            text: string;
+        };
         /** ClozeViewOut */
         ClozeViewOut: {
             /** Id */
@@ -798,6 +810,18 @@ export interface components {
              * @constant
              */
             status: "flagged";
+        };
+        /** FreeQuestionOut */
+        FreeQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "free";
+            /** Prompt */
+            prompt: string;
         };
         /** FreeResultOut */
         FreeResultOut: {
@@ -906,6 +930,20 @@ export interface components {
          * @enum {string}
          */
         ItemKind: "mc" | "true_false" | "cloze" | "free";
+        /** McQuestionOut */
+        McQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "mc";
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+        };
         /** McViewOut */
         McViewOut: {
             /** Id */
@@ -937,7 +975,9 @@ export interface components {
             answered: boolean;
             answer: components["schemas"]["GivenAnswerOut"] | null;
             /** Item */
-            item: components["schemas"]["McViewOut"] | components["schemas"]["TrueFalseViewOut"] | components["schemas"]["ClozeViewOut"] | components["schemas"]["FreeViewOut"];
+            item: components["schemas"]["McQuestionOut"] | components["schemas"]["TrueFalseQuestionOut"] | components["schemas"]["ClozeQuestionOut"] | components["schemas"]["FreeQuestionOut"];
+            /** Source */
+            source: string | null;
             review: components["schemas"]["MockReviewOut"] | null;
         };
         /** MockExamOut */
@@ -1207,6 +1247,18 @@ export interface components {
             not_before?: string | null;
             /** Pass Mark */
             pass_mark?: number | null;
+        };
+        /** TrueFalseQuestionOut */
+        TrueFalseQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "true_false";
+            /** Statement */
+            statement: string;
         };
         /** TrueFalseViewOut */
         TrueFalseViewOut: {

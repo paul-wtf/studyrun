@@ -55,6 +55,7 @@ async def test_subject_cascade_deletes_attempts_and_mock_exams(db_session):
             subject_id=subject.id,
             deadline=datetime(2027, 1, 1, 12, tzinfo=UTC),
             entries=[],
+            pass_mark=50,
         )
     )
     await db_session.flush()

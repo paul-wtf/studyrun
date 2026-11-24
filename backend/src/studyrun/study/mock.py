@@ -70,8 +70,10 @@ class _Candidate:
     weakness: float
 
 
-async def _candidates(session: AsyncSession, subject_id: int, now: datetime) -> list[_Candidate]:
-    rows = await session.execute(
+async def _candidates(
+    session: AsyncSession, subject_id: int, now: datetime, blocked: frozenset[int]
+) -> list[_Candidate]:
+    stmt = (
         select(Item.id, Item.chapter_id, Item.kind, ReviewState.card)
         .join(Chapter, Chapter.id == Item.chapter_id)
         .join(Booklet, Booklet.id == Chapter.booklet_id)
@@ -85,6 +87,9 @@ async def _candidates(session: AsyncSession, subject_id: int, now: datetime) -> 
         )
         .order_by(Module.position, Module.id, Chapter.index, Chapter.id, Item.id)
     )
+    if blocked:
+        stmt = stmt.where(Item.id.not_in(blocked))
+    rows = await session.execute(stmt)
     scheduler = Scheduler()
     candidates = []
     for item_id, chapter_id, kind, card in rows:
@@ -96,9 +101,15 @@ async def _candidates(session: AsyncSession, subject_id: int, now: datetime) -> 
 
 
 async def select_mock_items(
-    session: AsyncSession, subject_id: int, duration_minutes: int, *, now: datetime, seed: int
+    session: AsyncSession,
+    subject_id: int,
+    duration_minutes: int,
+    *,
+    now: datetime,
+    seed: int,
+    blocked: frozenset[int] = frozenset(),
 ) -> list[int]:
-    candidates = await _candidates(session, subject_id, now)
+    candidates = await _candidates(session, subject_id, now, blocked)
     pools: dict[int, list[_Candidate]] = {}
     for candidate in candidates:
         pools.setdefault(candidate.chapter_id, []).append(candidate)
@@ -113,18 +124,21 @@ async def select_mock_items(
     def fitting(chapter_id: int) -> list[_Candidate]:
         return [c for c in pools[chapter_id] if MINUTES[c.kind] <= remaining]
 
-    def take(chapter_id: int) -> None:
+    def take(chapter_id: int, *, cheapest: bool = False) -> None:
         nonlocal remaining
         options = fitting(chapter_id)
         if not options:
             return
+        if cheapest:
+            least = min(MINUTES[c.kind] for c in options)
+            options = [c for c in options if MINUTES[c.kind] == least]
         pick = rng.choices(options, weights=[MIN_WEIGHT + c.weakness for c in options])[0]
         pools[chapter_id].remove(pick)
         chosen.append(pick)
         remaining -= MINUTES[pick.kind]
 
     for chapter_id in sorted(pools, key=lambda c: -weights[c]):
-        take(chapter_id)
+        take(chapter_id, cheapest=True)
     while open_chapters := [c for c in pools if fitting(c)]:
         take(rng.choices(open_chapters, weights=[weights[c] for c in open_chapters])[0])
 
@@ -175,64 +189,95 @@ def pending_self_rating(entries: Sequence[MockEntry]) -> int:
     return sum(1 for e in entries if e.get("grading_unavailable") and e.get("score") is None)
 
 
-def rescore(mock: MockExam, pass_mark: int) -> None:
+def rescore(mock: MockExam) -> None:
     mock.score = mock_score(mock.entries)
-    mock.passed = mock.score >= pass_mark
+    mock.passed = mock.score >= mock.pass_mark
 
 
-async def finish_mock(
-    session: AsyncSession, llm: LLM, mock: MockExam, pass_mark: int, now: datetime
-) -> None:
-    items = {
-        item.id: item
-        for item in await session.scalars(
-            select(Item).where(Item.id.in_([e["item_id"] for e in mock.entries]))
+async def _locked(session: AsyncSession, mock_id: int) -> MockExam:
+    return (
+        await session.scalars(
+            select(MockExam)
+            .where(MockExam.id == mock_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
-    }
+    ).one()
+
+
+async def finish_mock(session: AsyncSession, llm: LLM, mock_id: int, now: datetime) -> MockExam:
+    """Commits after every graded free answer, so a retry after a crash pays only for the
+    answers still ungraded."""
     grading = True
-    entries: list[MockEntry] = []
-    for entry in mock.entries:
-        item = items[entry["item_id"]]
-        answer = entry.get("answer")
-        result: MockEntry = {
-            "score": 0,
-            "correct": False,
-            "grading_unavailable": False,
-            "feedback": None,
-            "missing": [],
-        }
-        if answer is not None and item.kind != ItemKind.free:
-            correct = check_objective(item, answer).correct
-            await record_review(
-                session, item.id, rating_for_objective(correct), now, correct=correct, score=None
-            )
-            result |= {"score": 100 if correct else 0, "correct": correct}
-        elif answer is not None:
-            grade = None
-            if grading:
-                try:
-                    grade = await grade_free(session, llm, item, answer["text"], now)
-                except (BudgetExceeded, LLMUnavailable):
-                    grading = False
-            if grade is None:
-                result |= {"score": None, "correct": None, "grading_unavailable": True}
-            else:
+    items: dict[int, Item] = {}
+    while True:
+        mock = await _locked(session, mock_id)
+        if mock.finished_at is not None:
+            return mock
+        if not items:
+            items = {
+                item.id: item
+                for item in await session.scalars(
+                    select(Item).where(Item.id.in_([e["item_id"] for e in mock.entries]))
+                )
+            }
+        entries = list(mock.entries)
+        graded = False
+        for n, entry in enumerate(entries):
+            if entry.get("checked"):
+                continue
+            item = items[entry["item_id"]]
+            answer = entry.get("answer")
+            free = item.kind == ItemKind.free
+            if graded and grading and free and answer is not None:
+                break
+            result: MockEntry = {
+                "checked": True,
+                "score": 0,
+                "correct": False,
+                "grading_unavailable": False,
+                "feedback": None,
+                "missing": [],
+            }
+            if answer is not None and not free:
+                correct = check_objective(item, answer).correct
                 await record_review(
                     session,
                     item.id,
-                    rating_for_score(grade.score),
+                    rating_for_objective(correct),
                     now,
-                    correct=None,
-                    score=grade.score,
+                    correct=correct,
+                    score=None,
                 )
-                result |= {
-                    "score": grade.score,
-                    "correct": grade.score >= 75,
-                    "feedback": grade.feedback,
-                    "missing": grade.missing,
-                }
-        entries.append({**entry, **result})
-    mock.entries = entries
-    mock.finished_at = now
-    rescore(mock, pass_mark)
-    await session.flush()
+                result |= {"score": 100 if correct else 0, "correct": correct}
+            elif answer is not None:
+                grade = None
+                if grading:
+                    try:
+                        grade = await grade_free(session, llm, item, answer["text"], now)
+                    except (BudgetExceeded, LLMUnavailable):
+                        grading = False
+                if grade is None:
+                    result |= {"score": None, "correct": None, "grading_unavailable": True}
+                else:
+                    graded = True
+                    await record_review(
+                        session,
+                        item.id,
+                        rating_for_score(grade.score),
+                        now,
+                        correct=None,
+                        score=grade.score,
+                    )
+                    result |= {
+                        "score": grade.score,
+                        "correct": grade.score >= 75,
+                        "feedback": grade.feedback,
+                        "missing": grade.missing,
+                    }
+            entries[n] = {**entry, **result}
+        mock.entries = entries
+        if all(e.get("checked") for e in entries):
+            mock.finished_at = now
+            rescore(mock)
+        await session.commit()

@@ -69,9 +69,8 @@ async def test_selection_fits_the_duration_and_spans_chapters(db_session):
     hidden = await _kinds(db_session, unintroduced, {ItemKind.true_false: 5})
     foreign = await make_chapter(db_session, other, 0, introduced_at=LONG_AGO)
     hidden += await _kinds(db_session, foreign, {ItemKind.true_false: 5})
-    hidden.append(
-        await make_item(db_session, chapters[0], ItemKind.true_false, status=ItemStatus.deleted)
-    )
+    for status in (ItemStatus.deleted, ItemStatus.flagged):
+        hidden.append(await make_item(db_session, chapters[0], ItemKind.true_false, status=status))
     kinds_by_id = {i.id: i.kind for i in pool}
 
     ids = await select_mock_items(db_session, subject.id, 30, now=NOW, seed=1)
@@ -162,3 +161,43 @@ def test_score_counts_unanswered_and_ungraded_as_zero():
     ]
     assert mock_score(entries) == 46
     assert mock_score([]) == 0
+
+
+async def test_first_pass_covers_chapters_with_the_cheapest_kinds(db_session):
+    module = await make_module(db_session)
+    subject = await make_subject(db_session, "Alpha", modules=(module,))
+    chapters = []
+    for index in range(3):
+        chapter = await make_chapter(db_session, module, index, introduced_at=LONG_AGO)
+        chapters.append(chapter.id)
+        await make_item(db_session, chapter, ItemKind.free)
+        await make_item(db_session, chapter, ItemKind.true_false)
+
+    for seed in range(10):
+        ids = await select_mock_items(db_session, subject.id, 8, now=NOW, seed=seed)
+        assert sorted(await _chapters_of(db_session, ids)) == chapters
+
+
+async def test_blocked_items_are_not_drawn(db_session):
+    module = await make_module(db_session)
+    subject = await make_subject(db_session, "Alpha", modules=(module,))
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    kept = await make_item(db_session, chapter, ItemKind.true_false)
+    blocked = await make_item(db_session, chapter, ItemKind.true_false)
+
+    ids = await select_mock_items(
+        db_session, subject.id, 90, now=NOW, seed=0, blocked=frozenset({blocked.id})
+    )
+
+    assert ids == [kept.id]
+
+
+async def test_flagged_and_deleted_items_are_not_drawn(db_session):
+    module = await make_module(db_session)
+    subject = await make_subject(db_session, "Alpha", modules=(module,))
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    kept = await make_item(db_session, chapter, ItemKind.true_false)
+    for status in (ItemStatus.flagged, ItemStatus.deleted):
+        await make_item(db_session, chapter, ItemKind.true_false, status=status)
+
+    assert await select_mock_items(db_session, subject.id, 90, now=NOW, seed=0) == [kept.id]

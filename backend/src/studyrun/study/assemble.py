@@ -19,6 +19,7 @@ from studyrun.models.db import (
     Item,
     ItemKind,
     ItemStatus,
+    MockExam,
     Module,
     ReviewState,
     Run,
@@ -237,19 +238,20 @@ async def _daily_plan(
     return [*current.plan.order, *(s.id for s in rest), None], windows
 
 
-async def _open_items(session: AsyncSession, settings: Settings, now: datetime) -> frozenset[int]:
+async def open_items(session: AsyncSession, settings: Settings, now: datetime) -> frozenset[int]:
     runs = await session.scalars(
         select(Run).where(
             Run.finished_at.is_(None),
             or_(Run.subject_id.is_not(None), Run.local_date == local_today(settings, now)),
         )
     )
+    mocks = await session.scalars(select(MockExam.entries).where(MockExam.finished_at.is_(None)))
     return frozenset(
         entry["item_id"]
         for run in runs
         for entry in run.entries
         if entry["type"] == "item" and not entry.get("done")
-    )
+    ) | frozenset(entry["item_id"] for entries in mocks for entry in entries)
 
 
 def _interleave(picks: list[_Pick]) -> list[_Pick]:
@@ -281,7 +283,7 @@ async def build_run(
     else:
         groups, windows = [subject_id], [(subject_id, None)]
         scope = groups
-    blocked = await _open_items(session, settings, now)
+    blocked = await open_items(session, settings, now)
     picks = await _due_items(session, cutoff, settings.run_review_cap, scope, blocked)
     intro_chapter_id: int | None = None
     intake = await _due_count(session, cutoff, scope) <= settings.run_review_cap

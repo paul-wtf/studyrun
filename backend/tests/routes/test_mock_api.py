@@ -5,12 +5,23 @@ from zoneinfo import ZoneInfo
 import pytest
 from fakes import FakeLLM
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from study.helpers import make_chapter, make_item, make_module, make_subject
 
 from studyrun.ai.budget import BudgetExceeded
+from studyrun.ai.ledger import record_call
 from studyrun.ai.llm import LLMUnavailable
-from studyrun.deps import get_llm, get_now
-from studyrun.models.db import ChapterStatus, Feature, ItemKind, MockExam, Module, ReviewLog
+from studyrun.ai.pricing import Usage
+from studyrun.deps import get_llm, get_now, get_session
+from studyrun.models.db import (
+    ApiCall,
+    ChapterStatus,
+    Feature,
+    ItemKind,
+    MockExam,
+    Module,
+    ReviewLog,
+)
 from studyrun.study.grading import GradeResult
 
 BERLIN = ZoneInfo("Europe/Berlin")
@@ -128,7 +139,7 @@ async def test_mock_shows_public_views_and_a_deadline(api, db_session, clock, ll
     for entry in mock["entries"]:
         assert entry["answered"] is False and entry["answer"] is None and entry["review"] is None
         assert not SECRET_KEYS & set(entry["item"])
-        assert entry["item"]["source"].startswith("/api/booklets/")
+        assert "source" not in entry["item"] and entry["source"] is None
     assert (await client.get(f"/api/mock/{mock['id']}")).json() == mock
 
 
@@ -200,6 +211,7 @@ async def test_finish_scores_every_item_and_records_reviews_once(api, db_session
         {"chapter_id": first.id, "title": first.title, "items": 2, "score": 50},
         {"chapter_id": second.id, "title": second.title, "items": 2, "score": 40},
     ]
+    assert all(e["source"].startswith("/api/booklets/") for e in out["entries"])
     by_item = {e["item"]["id"]: e["review"] for e in out["entries"]}
     assert by_item[items["mc"].id]["correct"] is True
     assert by_item[items["mc"].id]["score"] == 100
@@ -377,3 +389,120 @@ async def test_history_lists_mocks_newest_first(api, db_session, clock, llm):
     assert history[0]["score"] is None and history[0]["finished_at"] is None
     assert (await client.get("/api/subjects/999/mocks")).status_code == 404
     assert (await client.get("/api/mock/999")).status_code == 404
+
+
+class LedgerLLM:
+    """Writes a ledger row per call, like AnthropicLLM; an exception stands for a kill."""
+
+    def __init__(self, responses) -> None:
+        self.responses = list(responses)
+        self.calls = 0
+
+    async def structured(self, *, session, feature, system, content, schema, now):
+        self.calls += 1
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        await record_call(session, feature, "claude-opus-5-5", Usage(1000, 100, 0, 0), now)
+        return response
+
+
+@pytest.fixture
+def committing_session(api, db_session):
+    """A request session that commits and rolls back like the real one, inside the
+    test transaction (a savepoint per request)."""
+    _, app = api
+
+    async def _session():
+        factory = async_sessionmaker(
+            bind=await db_session.connection(),
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        async with factory() as session:
+            yield session
+            await session.commit()
+
+    app.dependency_overrides[get_session] = _session
+
+
+async def test_interrupted_finish_keeps_paid_grades(api, db_session, clock, committing_session):
+    client, app = api
+    subject, _, items = await seed(db_session, free_items=3)
+    mock = await start(client, subject)
+    mid = mock["id"]
+    for i in range(3):
+        await client.post(
+            f"/api/mock/{mid}/answers/{n_of(mock, items[f'free{i}'])}",
+            json={"answer": {"text": f"Antwort {i}"}},
+        )
+    killed = LedgerLLM([GradeResult(score=90, feedback="Gut.", missing=[]), RuntimeError("kill")])
+    app.dependency_overrides[get_llm] = lambda: killed
+
+    with pytest.raises(RuntimeError):
+        await client.post(f"/api/mock/{mid}/finish")
+
+    assert await db_session.scalar(select(func.count()).select_from(ApiCall)) == 1
+    graded = (await client.get(f"/api/mock/{mid}")).json()
+    assert graded["finished"] is False
+    late = await client.post(
+        f"/api/mock/{mid}/answers/{n_of(mock, items['free2'])}", json={"answer": {"text": "neu"}}
+    )
+    assert late.status_code == 409
+    retry = LedgerLLM([GradeResult(score=50, feedback="", missing=[])] * 2)
+    app.dependency_overrides[get_llm] = lambda: retry
+    out = (await client.post(f"/api/mock/{mid}/finish")).json()
+    assert retry.calls == 2
+    scores = {e["item"]["id"]: e["review"]["score"] for e in out["entries"]}
+    assert [scores[items[f"free{i}"].id] for i in range(3)] == [90, 50, 50]
+    assert await db_session.scalar(select(func.count()).select_from(ApiCall)) == 3
+    assert await reviews(db_session) == 3
+
+
+async def test_mock_keeps_its_pass_mark(api, db_session, clock, llm):
+    client, _ = api
+    subject, _, items = await seed(db_session, free_items=0)
+    await client.patch(f"/api/subjects/{subject.id}", json={"pass_mark": 60})
+    mock = await start(client, subject)
+    for key, answer in [("mc", {"choice": 2}), ("tf", {"value": True})]:
+        await client.post(
+            f"/api/mock/{mock['id']}/answers/{n_of(mock, items[key])}", json={"answer": answer}
+        )
+    await client.post(f"/api/mock/{mock['id']}/finish")
+
+    await client.patch(f"/api/subjects/{subject.id}", json={"pass_mark": 70})
+
+    result = (await client.get(f"/api/mock/{mock['id']}")).json()["result"]
+    assert (result["score"], result["pass_mark"], result["passed"]) == (67, 60, True)
+    history = (await client.get(f"/api/subjects/{subject.id}/mocks")).json()
+    assert history[0]["passed"] is True
+
+
+async def test_open_mock_items_stay_out_of_runs(api, db_session, clock, llm):
+    client, _ = api
+    subject, _, items = await seed(db_session)
+    mock = await start(client, subject)
+    mock_items = {e["item"]["id"] for e in mock["entries"]}
+
+    assert mock_items == {i.id for i in items.values()}
+
+    run = (await client.post("/api/runs", json={"subject_id": subject.id})).json()
+
+    assert run["id"] is None and run["entries"] == []
+    await client.post(f"/api/mock/{mock['id']}/finish")
+    later = (await client.post("/api/runs", json={"subject_id": subject.id})).json()
+    assert {e["item"]["id"] for e in later["entries"] if e["type"] == "item"} & mock_items
+
+
+async def test_mock_skips_items_pending_in_open_runs(api, db_session, clock, llm):
+    client, _ = api
+    subject, (first, _), items = await seed(db_session)
+    for i in range(4):
+        items[f"tf{i}"] = await make_item(db_session, first, ItemKind.true_false, payload=TF)
+    run = (await client.post("/api/runs", json={"subject_id": subject.id})).json()
+    pending = {e["item"]["id"] for e in run["entries"] if e["type"] == "item"}
+    assert pending
+
+    mock = await start(client, subject)
+
+    assert {e["item"]["id"] for e in mock["entries"]} == {i.id for i in items.values()} - pending

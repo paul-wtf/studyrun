@@ -51,32 +51,51 @@ class SelfRateIn(BaseModel):
     rating: Literal["again", "good"]
 
 
-class McViewOut(BaseModel):
+class McQuestionOut(BaseModel):
     id: int
     kind: Literal["mc"]
     prompt: str
     options: list[str]
-    source: str
 
 
-class TrueFalseViewOut(BaseModel):
+class TrueFalseQuestionOut(BaseModel):
     id: int
     kind: Literal["true_false"]
     statement: str
-    source: str
 
 
-class ClozeViewOut(BaseModel):
+class ClozeQuestionOut(BaseModel):
     id: int
     kind: Literal["cloze"]
     text: str
-    source: str
 
 
-class FreeViewOut(BaseModel):
+class FreeQuestionOut(BaseModel):
     id: int
     kind: Literal["free"]
     prompt: str
+
+
+QuestionOut = Annotated[
+    McQuestionOut | TrueFalseQuestionOut | ClozeQuestionOut | FreeQuestionOut,
+    Field(discriminator="kind"),
+]
+QUESTION: TypeAdapter[QuestionOut] = TypeAdapter(QuestionOut)
+
+
+class McViewOut(McQuestionOut):
+    source: str
+
+
+class TrueFalseViewOut(TrueFalseQuestionOut):
+    source: str
+
+
+class ClozeViewOut(ClozeQuestionOut):
+    source: str
+
+
+class FreeViewOut(FreeQuestionOut):
     source: str
 
 

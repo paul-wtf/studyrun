@@ -81,6 +81,7 @@ def upgrade() -> None:
         sa.Column("deadline", sa.DateTime(timezone=True), nullable=False),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("entries", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("pass_mark", sa.Integer(), nullable=False),
         sa.Column("score", sa.Integer(), nullable=True),
         sa.Column("passed", sa.Boolean(), nullable=True),
         sa.ForeignKeyConstraint(["subject_id"], ["subjects.id"], ondelete="CASCADE"),
