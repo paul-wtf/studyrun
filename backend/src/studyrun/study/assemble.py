@@ -240,10 +240,7 @@ async def _daily_plan(
 
 async def open_items(session: AsyncSession, settings: Settings, now: datetime) -> frozenset[int]:
     runs = await session.scalars(
-        select(Run).where(
-            Run.finished_at.is_(None),
-            or_(Run.subject_id.is_not(None), Run.local_date == local_today(settings, now)),
-        )
+        select(Run).where(Run.finished_at.is_(None), Run.local_date == local_today(settings, now))
     )
     mocks = await session.scalars(
         select(MockExam.entries).where(MockExam.finished_at.is_(None), MockExam.deadline > now)

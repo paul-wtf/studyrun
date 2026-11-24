@@ -532,18 +532,77 @@ async def test_unknown_subject_is_404(api, db_session, clock):
     assert resp.status_code == 404
 
 
-async def test_daily_run_skips_items_open_in_an_older_subject_run(api, db_session, clock):
-    client, _ = api
-    module = await make_module(db_session)
+async def seed_open_subject(db_session, name: str = "Fach", position: int = 0):
+    module = await make_module(db_session, position)
     chapter = await make_chapter(db_session, module, introduced_at=berlin(20, 9))
     for _ in range(6):
         await make_item(db_session, chapter, ItemKind.mc, payload=MC)
-    subject = await make_subject(db_session, "Fach", sitting=date(2027, 2, 10), modules=(module,))
+    return await make_subject(db_session, name, sitting=date(2027, 2, 10), modules=(module,))
+
+
+async def test_daily_run_skips_items_open_in_todays_subject_run(api, db_session, clock):
+    client, _ = api
+    subject = await seed_open_subject(db_session)
     clock.now = berlin(23, 10)
     in_subject_run = run_item_ids(await start_subject(client, subject.id))
     assert len(in_subject_run) == 4
 
-    clock.now = berlin(24, 10)
+    clock.now = berlin(23, 23, 50)
     daily = await start(client)
     assert run_item_ids(daily)
     assert not run_item_ids(daily) & in_subject_run
+
+
+async def test_older_subject_run_stops_blocking_but_stays_resumable(api, db_session, clock):
+    client, _ = api
+    subject = await seed_open_subject(db_session)
+    clock.now = berlin(23, 10)
+    run = await start_subject(client, subject.id)
+    in_subject_run = run_item_ids(run)
+
+    clock.now = berlin(24, 10)
+    daily = await start(client)
+    assert run_item_ids(daily) & in_subject_run
+    assert (await current(client, subject.id))["id"] == run["id"]
+
+
+async def test_open_runs_lists_unfinished_subject_runs(api, db_session, clock):
+    client, _ = api
+    alpha = await seed_open_subject(db_session, "Alpha", 1)
+    beta = await seed_open_subject(db_session, "Beta", 2)
+    gamma = await seed_open_subject(db_session, "Gamma", 3)
+    clock.now = berlin(22, 21)
+    first = await start_subject(client, alpha.id)
+    clock.now = berlin(23, 10)
+    await start(client)
+    second = await start_subject(client, beta.id)
+    finished = await start_subject(client, gamma.id)
+    await client.post(f"/api/runs/{finished['id']}/finish")
+    answered = min(run_item_ids(second))
+    resp = await client.post(
+        f"/api/runs/{second['id']}/entries/{index_of(second, answered)}/answer",
+        json={"answer": {"choice": 2}},
+    )
+    assert resp.status_code == 200
+
+    resp = await client.get("/api/runs/open")
+    assert resp.status_code == 200
+    runs = resp.json()
+    assert [datetime.fromisoformat(r.pop("created_at")) for r in runs] == [
+        berlin(22, 21),
+        berlin(23, 10),
+    ]
+    assert runs == [
+        {
+            "id": first["id"],
+            "subject_id": alpha.id,
+            "subject_name": "Alpha",
+            "open_items": len(run_item_ids(first)),
+        },
+        {
+            "id": second["id"],
+            "subject_id": beta.id,
+            "subject_name": "Beta",
+            "open_items": len(run_item_ids(second)) - 1,
+        },
+    ]

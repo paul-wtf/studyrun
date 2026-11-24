@@ -144,6 +144,14 @@ class CurrentRunOut(BaseModel):
     run: RunOut | None
 
 
+class OpenRunOut(BaseModel):
+    id: int
+    subject_id: int
+    subject_name: str
+    created_at: datetime
+    open_items: int
+
+
 class DoneOut(BaseModel):
     done: Literal[True]
 
@@ -295,6 +303,26 @@ async def current_run(
     return CurrentRunOut(run=None if run is None else await _run_out(session, run))
 
 
+@router.get("/runs/open")
+async def open_runs(session: Session) -> list[OpenRunOut]:
+    rows = await session.execute(
+        select(Run, Subject.id, Subject.name)
+        .join(Subject, Subject.id == Run.subject_id)
+        .where(Run.finished_at.is_(None))
+        .order_by(Run.created_at, Run.id)
+    )
+    return [
+        OpenRunOut(
+            id=run.id,
+            subject_id=subject_id,
+            subject_name=name,
+            created_at=run.created_at,
+            open_items=sum(1 for e in run.entries if e["type"] == "item" and not e.get("done")),
+        )
+        for run, subject_id, name in rows.all()
+    ]
+
+
 @router.post("/runs")
 async def start_run(
     session: Session, settings: AppSettings, now: Now, body: StartRunIn | None = None
@@ -312,7 +340,7 @@ async def start_run(
                 entries=[],
             )
         local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
-        run = Run(local_date=local_date, subject_id=subject_id, entries=entries)
+        run = Run(local_date=local_date, subject_id=subject_id, entries=entries, created_at=now)
         session.add(run)
         await session.flush()
     return await _run_out(session, run)
