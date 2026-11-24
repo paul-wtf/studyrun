@@ -125,6 +125,25 @@ describe('home', () => {
     expect(await screen.findByText(/Ergebnis eintragen: Rechnungswesen/)).toBeInTheDocument();
   });
 
+  it('asks for a missing result the plan reports next to a later registration', async () => {
+    mockApi({
+      ...BASE,
+      'GET /api/plan': {
+        ...EMPTY_PLAN,
+        entries: [planEntry({ state: 'registered', sitting: '2027-01-31' })],
+        conflicts: [
+          { subject_id: 1, subject_name: 'Rechnungswesen', kind: 'needs_result', message: 'Für die Prüfung am 08.11.2026 fehlt das Ergebnis.' },
+          { subject_id: 2, subject_name: 'Statistik', kind: 'two_in_month', message: 'Im Januar 2027 ist schon Rechnungswesen angesetzt.' }
+        ]
+      }
+    });
+    render(Page);
+    const note = (await screen.findByText(/Für die Prüfung am 08\.11\.2026 fehlt das Ergebnis/)).closest('p')!;
+    expect(note).toHaveTextContent('Ergebnis eintragen: Rechnungswesen.');
+    expect(within(note).getByRole('link', { name: 'Zum Fach' })).toHaveAttribute('href', '/subjects/1');
+    expect(screen.queryByText(/Im Januar 2027/)).not.toBeInTheDocument();
+  });
+
   it('offers a subject run for the subject in focus', async () => {
     mockApi({
       ...BASE,

@@ -117,7 +117,7 @@ const subjects = [
   subject(3, 'Personalwirtschaft', { recommended_semester: 4, sittings: ['2027-01-17', '2027-03-21'], attempts: [attempt(31, '2027-03-21', 'planned')] }),
   subject(4, 'Wirtschaftsrecht', { sittings: ['2027-01-17', '2027-04-18'] }),
   subject(5, 'Marketing', { earliest_semester: '6a', recommended_semester: 6, sittings: ['2027-01-17', '2027-05-16'] }),
-  subject(6, 'Grundlagen der BWL', { sittings: ['2026-11-15', '2027-02-14'], attempts: [attempt(61, '2026-11-15', 'registered')] }),
+  subject(6, 'Grundlagen der BWL', { sittings: ['2026-06-14', '2026-11-15', '2027-02-14'], attempts: [attempt(62, '2026-06-14', 'planned'), attempt(61, '2026-11-15', 'registered')] }),
   subject(7, 'Wirtschaftsmathematik', { sittings: ['2026-10-11', '2027-01-17'], attempts: [attempt(71, '2026-06-14', 'failed'), attempt(72, '2026-10-11', 'passed')] })
 ];
 const semesters = [
@@ -157,6 +157,10 @@ const progress = {
 const mocks = [
   { id: 14, started_at: '2026-11-21T17:05:00Z', deadline: '2026-11-21T18:35:00Z', finished_at: '2026-11-21T18:21:00Z', score: 63, passed: true },
   { id: 11, started_at: '2026-11-12T18:40:00Z', deadline: '2026-11-12T20:10:00Z', finished_at: '2026-11-12T20:09:00Z', score: 44, passed: false }
+];
+const openRuns = [
+  { id: 41, subject_id: 1, subject_name: subjects[0].name, created_at: '2026-11-24T07:40:00Z', open_items: 3 },
+  { id: 37, subject_id: 2, subject_name: subjects[1].name, created_at: '2026-11-20T20:15:00Z', open_items: 1 }
 ];
 const openMock = { id: 15, started_at: '2026-11-24T08:00:00Z', deadline: '2026-11-24T09:30:00Z', finished_at: null, score: null, passed: null };
 
@@ -212,6 +216,7 @@ function base(method, path) {
   if (method === 'GET' && /^\/api\/modules\/\d+\/chapters$/.test(path)) return json(chapters);
   if (method === 'GET' && path === '/api/runs/current') return json({ run: run(done(intro), mc(1)) });
   if (method === 'GET' && path.startsWith('/api/runs/current?subject_id=')) return json({ run: current.subjectRun ? run(done(intro), mc(1)) : null });
+  if (method === 'GET' && path === '/api/runs/open') return json(current.openRuns ?? []);
   if (method === 'GET' && path === '/api/subjects') return json(subjects);
   if (method === 'GET' && /^\/api\/subjects\/\d+$/.test(path)) return json(subjects.find((s) => `/api/subjects/${s.id}` === path));
   if (method === 'GET' && /^\/api\/subjects\/\d+\/mocks$/.test(path)) return json(current.openMock ? [openMock, ...mocks] : mocks);
@@ -237,6 +242,7 @@ const answerCloze = (text) => async (page) => {
 
 const SCENARIOS = [
   { name: 'home', path: '/', wait: 'a[href="/run"]' },
+  { name: 'home-open-runs', path: '/', openRuns, wait: 'text=Offene Fach-Runs' },
   { name: 'nav-focus', path: '/costs', ready: 'text=Dieser Monat', act: tabTo('Module'), wait: 'text=Dieser Monat' },
   { name: 'run-intro', path: '/run', runs: [run(intro, mc(1))], wait: 'text=Neues Kapitel' },
   {
@@ -274,6 +280,7 @@ const SCENARIOS = [
   { name: 'subject', path: '/subjects/1', wait: 'text=Bosskämpfe' },
   { name: 'subject-open', path: '/subjects/1', subjectRun: true, openMock: true, wait: 'text=Auswertung abschließen' },
   { name: 'subject-results', path: '/subjects/7', wait: 'text=Prüfungsversuche' },
+  { name: 'subject-attempts', path: '/subjects/6', wait: 'text=Verwerfen' },
   { name: 'subject-expired', path: '/subjects/1', openMock: true, expiredMock: true, wait: 'text=Abgelaufen' },
   { name: 'mock-exam', path: '/mock/20', mock: mockExam(), wait: '[role=timer]' },
   { name: 'mock-free', path: '/mock/20', mock: mockExam(), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Frage 4, beantwortet' }).click(), wait: 'textarea' },

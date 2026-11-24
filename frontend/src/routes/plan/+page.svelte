@@ -86,7 +86,7 @@
         <a class="btn primary block" href="/subjects">Prüfungsplan importieren</a>
       </div>
     {:else}
-      <p class="note">Tempo: {pace(plan.pace_per_day)} neue Fragen pro Lerntag. Höchstens eine Prüfung pro Monat, Anmeldung bis 21 Tage vorher.</p>
+      <p class="note">Tempo: {pace(plan.pace_per_day)} neue Fragen pro Tag. Höchstens eine Prüfung pro Monat, Anmeldung bis 21 Tage vorher.</p>
       {#if months.length}
         <section class="card timeline" aria-labelledby="timeline-title">
           <h2 id="timeline-title">Termine</h2>

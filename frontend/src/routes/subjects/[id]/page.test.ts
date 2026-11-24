@@ -131,6 +131,58 @@ describe('subject page', () => {
     expect(within(rows[1]).getByText('Nicht bestanden')).toBeInTheDocument();
   });
 
+  it('discards a planned attempt whose sitting is past', async () => {
+    const s = subject({ attempts: [{ id: 4, sitting: '2026-06-14', status: 'planned' }] });
+    const { calls } = mockApi(routes({ 'DELETE /api/attempts/4': new Response(null, { status: 204 }) }, s));
+    render(Page);
+    const attempts = await screen.findByRole('region', { name: 'Prüfungsversuche' });
+    expect(within(attempts).getByText('Geplant')).toBeInTheDocument();
+    await userEvent.click(within(attempts).getByRole('button', { name: 'Verwerfen' }));
+    await vi.waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
+    expect(calls.find((c) => c.method === 'DELETE')).toMatchObject({ path: '/api/attempts/4' });
+  });
+
+  it('offers no discard for a planned attempt still ahead', async () => {
+    const s = subject({ attempts: [{ id: 4, sitting: '2099-06-14', status: 'planned' }] });
+    mockApi(routes({}, s));
+    render(Page);
+    const attempts = await screen.findByRole('region', { name: 'Prüfungsversuche' });
+    expect(within(attempts).queryByRole('button', { name: 'Verwerfen' })).not.toBeInTheDocument();
+  });
+
+  it('asks for the result of a past registration next to a later one', async () => {
+    const s = subject({
+      attempts: [
+        { id: 5, sitting: '2026-06-14', status: 'registered' },
+        { id: 6, sitting: '2099-01-31', status: 'registered' }
+      ]
+    });
+    const plan = { ...PLAN, entries: [planEntry({ state: 'registered', sitting: '2099-01-31' })] };
+    const { calls } = mockApi(
+      routes({ 'GET /api/plan': plan, 'PATCH /api/attempts/5': { id: 5, sitting: '2026-06-14', status: 'failed' } }, s)
+    );
+    render(Page);
+    const attempts = await screen.findByRole('region', { name: 'Prüfungsversuche' });
+    const [later, past] = within(attempts).getAllByRole('listitem');
+    expect(within(later).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(past).getByText('Ergebnis fehlt')).toBeInTheDocument();
+    expect(within(past).getByRole('button', { name: 'Bestanden' })).toBeInTheDocument();
+    await userEvent.click(within(past).getByRole('button', { name: 'Nicht bestanden' }));
+    await vi.waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true));
+    expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({ path: '/api/attempts/5', body: { status: 'failed' } });
+  });
+
+  it('leaves the result the plan card asks for to the card', async () => {
+    const s = subject({ attempts: [{ id: 5, sitting: '2026-06-14', status: 'registered' }] });
+    const plan = { ...PLAN, entries: [planEntry({ state: 'needs_result', sitting: '2026-06-14' })] };
+    mockApi(routes({ 'GET /api/plan': plan }, s));
+    render(Page);
+    const attempts = await screen.findByRole('region', { name: 'Prüfungsversuche' });
+    expect(within(attempts).getByText('Ergebnis fehlt')).toBeInTheDocument();
+    expect(within(attempts).queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ergebnis eintragen' })).toBeInTheDocument();
+  });
+
   it('corrects a recorded result', async () => {
     const s = subject({ attempts: [{ id: 3, sitting: '2026-06-14', status: 'failed' }] });
     const { calls } = mockApi(routes({ 'PATCH /api/attempts/3': { id: 3, sitting: '2026-06-14', status: 'passed' } }, s));

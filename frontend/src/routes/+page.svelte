@@ -24,6 +24,7 @@
   const next = $derived(plan ? nextExam(plan.entries, day) : undefined);
   const deadlines = $derived(plan ? deadlinesSoon(plan.entries, day) : []);
   const results = $derived(plan?.entries.filter((e) => e.state === 'needs_result') ?? []);
+  const missing = $derived(plan?.conflicts.filter((c) => c.kind === 'needs_result') ?? []);
   const focusEntry = $derived(plan ? focusSubject(plan) : undefined);
   const focus = $derived(openRuns.some((r) => r.subject_id === focusEntry?.subject_id) ? undefined : focusEntry);
   const questions = (n: number) => (n === 1 ? '1 Frage offen' : `${n} Fragen offen`);
@@ -81,6 +82,9 @@
   {/if}
   {#each results as r (r.subject_id)}
     <p class="note">Ergebnis eintragen: {r.subject_name} (Prüfung am {deDate(r.sitting ?? '')}). <a href="/plan">Zum Plan</a></p>
+  {/each}
+  {#each missing as m, i (i)}
+    <p class="note">Ergebnis eintragen: {m.subject_name}. {m.message} <a href="/subjects/{m.subject_id}">Zum Fach</a></p>
   {/each}
 
   {#if ready === false && !resume}
@@ -143,9 +147,8 @@
   .banner { box-shadow: var(--glass-shadow), inset 4px 0 0 var(--accent-text); }
   .banner h2 { color: var(--accent-text); }
   .banner ul { list-style: none; padding: 0; margin: 0 0 0.25rem; display: grid; gap: 0.35rem; }
-  .open-runs ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+  .open-runs ul { list-style: none; padding: 0; display: grid; gap: 0.75rem; }
   .open-runs li { display: grid; gap: 0.25rem; }
-  .open-runs p { margin: 0; }
   .go { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
   .head h2 { margin: 0; }

@@ -8,9 +8,10 @@
 <div class="week">
   <ol aria-label="Diese Woche">
     {#each week.days as day (day.date)}
-      <li aria-label="{weekdayShort(day.date)}: {day.done ? 'gelernt' : 'offen'}">
+      <li>
         <span class="dot" class:done={day.done}></span>
         <span class="day" aria-hidden="true">{weekdayShort(day.date)}</span>
+        <span class="sr">{weekdayShort(day.date)}: {day.done ? 'gelernt' : 'offen'}</span>
       </li>
     {/each}
   </ol>
@@ -27,4 +28,5 @@
   .dot.done { background: var(--accent-text); }
   .day { font-size: 0.75rem; color: var(--text-muted); }
   .count { margin: 0; font-weight: 600; }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>

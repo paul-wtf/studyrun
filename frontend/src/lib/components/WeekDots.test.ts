@@ -10,9 +10,10 @@ describe('WeekDots', () => {
     render(WeekDots, { week: { days: days([true, false, true, false, false, false, false]), goal: 4, done_count: 2 } });
     const list = screen.getByRole('list', { name: 'Diese Woche' });
     const items = within(list).getAllByRole('listitem');
-    expect(items.map((li) => li.getAttribute('aria-label'))).toEqual([
+    expect(items.map((li) => within(li).getByText(/: (gelernt|offen)$/).textContent)).toEqual([
       'Mo: gelernt', 'Di: offen', 'Mi: gelernt', 'Do: offen', 'Fr: offen', 'Sa: offen', 'So: offen'
     ]);
+    expect(items.every((li) => !li.hasAttribute('aria-label'))).toBe(true);
     expect(screen.getByText('2 von 4 Tagen')).toBeInTheDocument();
   });
 

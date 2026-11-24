@@ -255,6 +255,21 @@ describe('mock exam page', () => {
     expect(screen.getByRole('button', { name: 'Auswertung fortsetzen' })).toBeInTheDocument();
   });
 
+  it('picks up the grading after the server reports it unavailable', async () => {
+    vi.useFakeTimers({ now: T0, shouldAdvanceTime: true });
+    let finishes = 0;
+    mockApi({
+      'GET /api/mock/7': () => exam({ deadline: new Date(Date.now() - 60_000).toISOString(), expired: true }),
+      'POST /api/mock/7/finish': () =>
+        finishes++ === 0 ? failure(503, 'Die Bewertung ist gerade nicht erreichbar. Versuch es gleich noch einmal.') : finishedExam()
+    });
+    render(Page);
+    expect(await screen.findByText('Die Auswertung ist noch nicht fertig')).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(3_100);
+    expect(await screen.findByText('25 %')).toBeInTheDocument();
+    expect(finishes).toBe(2);
+  });
+
   it('shows the result the re-fetch finds after a finish error', async () => {
     let gets = 0;
     mockApi({

@@ -34,7 +34,7 @@ describe('plan page', () => {
     const timeline = screen.getByRole('region', { name: 'Termine' });
     expect(conflicts.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByRole('article').map((a) => a.getAttribute('aria-label'))).toEqual(['Rechnungswesen', 'Statistik']);
-    expect(screen.getByText(/3,5 neue Fragen pro Lerntag/)).toBeInTheDocument();
+    expect(screen.getByText(/3,5 neue Fragen pro Tag\./)).toBeInTheDocument();
   });
 
   it('shows the coming sittings by month with the subjects and which one is taken', async () => {
