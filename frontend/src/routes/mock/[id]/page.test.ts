@@ -74,6 +74,26 @@ describe('mock exam page', () => {
     expect(posts(calls, '/api/mock/7/answers/2')[0]).toMatchObject({ body: { answer: { text: 'Minimal' } } });
   });
 
+  it('sends every pending answer at once when the page is left', async () => {
+    const { calls, fetchMock } = mockApi({
+      'GET /api/mock/7': exam({ deadline: later(90) }),
+      'POST /api/mock/7/answers/3': () => new Promise(() => {}),
+      'POST /api/mock/7/answers/2': () => new Promise(() => {})
+    });
+    render(Page);
+    await userEvent.click(await screen.findByRole('button', { name: 'Frage 4, offen' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Antwort' }), 'Erst');
+    await userEvent.click(screen.getByRole('button', { name: 'Frage 3, offen' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Antwort' }), 'Dann');
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.waitFor(() => {
+      expect(posts(calls, '/api/mock/7/answers/3')).toHaveLength(1);
+      expect(posts(calls, '/api/mock/7/answers/2')).toHaveLength(1);
+    }, { timeout: 300 });
+    const second = fetchMock.mock.calls.find(([path]) => path === '/api/mock/7/answers/2');
+    expect(second?.[1]).toMatchObject({ keepalive: true, body: JSON.stringify({ answer: { text: 'Dann' } }) });
+  });
+
   it('keeps the saving note out of the announced status', async () => {
     mockApi({
       'GET /api/mock/7': exam({ deadline: later(90) }),

@@ -54,7 +54,7 @@
     else void save(n);
   }
 
-  function save(n: number, keepalive = false): Promise<void> {
+  function save(n: number): Promise<void> {
     clearTimeout(timers.get(n));
     timers.delete(n);
     saving++;
@@ -63,7 +63,7 @@
         if (!dirty.has(n)) return;
         dirty.delete(n);
         try {
-          await api.post<MockAnswer>(`/api/mock/${id}/answers/${n}`, { answer: $state.snapshot(answers[n]) }, { keepalive });
+          await api.post<MockAnswer>(`/api/mock/${id}/answers/${n}`, { answer: $state.snapshot(answers[n]) });
           if (dirty.size === 0) saveError = '';
         } catch (e) {
           dirty.add(n);
@@ -80,8 +80,8 @@
     return queue;
   }
 
-  async function flush(keepalive = false) {
-    for (const n of [...dirty]) void save(n, keepalive);
+  async function flush() {
+    for (const n of [...dirty]) void save(n);
     await queue;
   }
 
@@ -134,7 +134,15 @@
   }
 
   function leave() {
-    if (phase === 'exam') void flush(true);
+    if (phase !== 'exam') return;
+    for (const n of [...dirty]) {
+      clearTimeout(timers.get(n));
+      timers.delete(n);
+      dirty.delete(n);
+      api
+        .post<MockAnswer>(`/api/mock/${id}/answers/${n}`, { answer: $state.snapshot(answers[n]) }, { keepalive: true })
+        .catch(() => dirty.add(n));
+    }
   }
 
   function expire() {
