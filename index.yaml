@@ -1,0 +1,22 @@
+apiVersion: v1
+entries:
+  studyrun:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-11-24T06:21:06.840173968Z"
+    description: Single-user study app that turns course booklets into spaced-repetition
+      runs
+    digest: f20f730f8300c920d9fa9ea3d81d79d0c1727dac8e787151d17d62dc4c1bdf6d
+    home: https://github.com/paul-wtf/studyrun
+    keywords:
+    - study
+    - spaced-repetition
+    - self-hosted
+    name: studyrun
+    sources:
+    - https://github.com/paul-wtf/studyrun
+    type: application
+    urls:
+    - https://github.com/paul-wtf/studyrun/releases/download/studyrun-0.1.0/studyrun-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-11-24T06:21:06.84017852Z"
