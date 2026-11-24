@@ -121,11 +121,11 @@
   --text-dim: var(--subtext1);
 
   --accent: #fe640b;
-  /* Latte peach is drawn for surfaces: as text it reaches only 2.7:1. This is
-     the same hue darkened until it clears 4.5:1 everywhere content sits
-     (crust 4.55 / mantle 4.95 / base 5.32). Anything read, a fill carrying
-     text, or a focus ring takes --accent-text; the header mark and the moon
-     keep --accent. */
+  /* Latte peach is drawn for surfaces: as text it reaches only 2.25 / 2.45 /
+     2.64:1 on crust / mantle / base. This is the same hue darkened until it
+     clears 4.5:1 everywhere content sits (crust 4.55 / mantle 4.95 / base
+     5.32). Anything read, a fill carrying text, or a focus ring takes
+     --accent-text; the header mark and the moon keep --accent. */
   --accent-text: #ac4001;
   --accent-contrast: var(--base);
   --accent-soft: rgba(254, 100, 11, 0.18);

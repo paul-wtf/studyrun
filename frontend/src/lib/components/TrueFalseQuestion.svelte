@@ -11,6 +11,7 @@
   }: { runId: number; entry: TrueFalseEntry; onDone: () => void; onStale?: (error: unknown) => void } = $props();
   let result = $state<ObjectiveResult | null>(null);
   let chosen = $state<boolean | null>(null);
+  const right = $derived(result && chosen !== null ? (result.correct ? chosen : !chosen) : null);
   let busy = $state(false);
   let error = $state('');
 
@@ -42,7 +43,7 @@
         <button
           class="option"
           class:picked={chosen === value && !result}
-          class:correct={result !== null && label === result.expected}
+          class:correct={right === value}
           class:wrong={result !== null && chosen === value && !result.correct}
           disabled={busy}
           onclick={() => answer(value)}>{label}</button

@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
 export type Theme = 'mocha' | 'latte';
-const KEY = 'studyrun-theme';
+export const STORAGE_KEY = 'studyrun-theme';
 const browser = typeof document !== 'undefined';
 
 export const MANTLE: Record<Theme, string> = { mocha: '#181825', latte: '#e6e9ef' };
@@ -9,7 +9,7 @@ export const MANTLE: Record<Theme, string> = { mocha: '#181825', latte: '#e6e9ef
 function initial(): Theme {
   if (!browser) return 'mocha';
   try {
-    const saved = localStorage.getItem(KEY);
+    const saved = localStorage.getItem(STORAGE_KEY);
     return saved === 'latte' || saved === 'mocha' ? saved : 'mocha';
   } catch {
     return 'mocha';
@@ -21,7 +21,7 @@ export const theme = writable<Theme>(initial());
 theme.subscribe((value) => {
   if (!browser) return;
   try {
-    localStorage.setItem(KEY, value);
+    localStorage.setItem(STORAGE_KEY, value);
   } catch {
     // Storage blocked: the theme still applies, it just isn't remembered.
   }

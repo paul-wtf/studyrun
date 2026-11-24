@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MANTLE, type Theme } from '#lib/stores/theme.ts';
+import { MANTLE, STORAGE_KEY, type Theme } from '#lib/stores/theme.ts';
 
 const css = readFileSync(resolve('src/lib/theme/tokens.css'), 'utf8');
 
@@ -60,5 +60,21 @@ describe.each(themes)('%s contrast', (name, selector) => {
 
   it('gives the browser chrome the mantle colour', () => {
     expect(MANTLE[name]).toBe(get('--mantle'));
+  });
+});
+
+describe('values copied out of tokens.css and theme.ts', () => {
+  const html = readFileSync(resolve('src/app.html'), 'utf8');
+  const manifest = JSON.parse(readFileSync(resolve('static/manifest.webmanifest'), 'utf8'));
+
+  it('keeps the pre-paint script in step with the theme store', () => {
+    expect(html).toContain(`localStorage.getItem('${STORAGE_KEY}')`);
+    expect(html).toContain(`<meta name="theme-color" content="${MANTLE.mocha}" />`);
+    expect(html).toContain(`t === 'latte' ? '${MANTLE.latte}' : '${MANTLE.mocha}'`);
+  });
+
+  it('gives the installed app the Mocha crust and mantle', () => {
+    expect(manifest.background_color).toBe(tokens(":root[data-theme='mocha']")['--crust']);
+    expect(manifest.theme_color).toBe(MANTLE.mocha);
   });
 });

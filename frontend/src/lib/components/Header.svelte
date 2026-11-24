@@ -68,7 +68,7 @@
   }
   nav {
     display: flex;
-    gap: 0 1.25rem;
+    gap: 0 0.55rem;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -80,6 +80,7 @@
     align-items: center;
     flex-shrink: 0;
     min-height: 44px;
+    padding: 0 0.35rem;
     color: var(--text-muted);
     text-decoration: none;
     font-size: 0.95rem;
@@ -87,6 +88,10 @@
   }
   nav a:hover {
     color: var(--text);
+  }
+  /* nav scrolls horizontally, so it clips anything drawn outside its links. */
+  nav a:focus-visible {
+    outline-offset: -3px;
   }
   nav a[aria-current='page'] {
     color: var(--accent-text);

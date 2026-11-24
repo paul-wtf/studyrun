@@ -127,6 +127,6 @@
   textarea { min-height: 5rem; }
   /* Error red carries base-coloured text at 4.80:1 (Latte) and 7.08:1 (Mocha). */
   .danger { background: var(--error); color: var(--base); }
-  .danger:not(:disabled):hover { background: var(--error); filter: brightness(1.1); }
+  .danger:not(:disabled):hover { background: var(--error); }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>

@@ -82,6 +82,7 @@ const intro = {
 const item = (n, view, extra = {}) => ({ n, type: 'item', done: false, grading_unavailable: false, model_answer: null, item: { source, ...view }, ...extra });
 const mc = (n) => item(n, { id: 21, kind: 'mc', prompt: 'Welcher Produktionsfaktor zählt zu den dispositiven Faktoren?', options: ['Werkstoffe', 'Betriebsmittel', 'Planung', 'Ausführende Arbeit'] });
 const tf = (n) => item(n, { id: 22, kind: 'true_false', statement: 'Das Minimalprinzip strebt ein festes Ergebnis mit möglichst geringem Mitteleinsatz an.' });
+const cloze = (n) => item(n, { id: 24, kind: 'cloze', text: 'Das ___ strebt ein festes Ergebnis mit möglichst geringem Mitteleinsatz an.' });
 const free = (n) =>
   item(n, { id: 23, kind: 'free', prompt: 'Erkläre den Unterschied zwischen Effektivität und Effizienz.' }, {
     grading_unavailable: true,
@@ -95,6 +96,9 @@ const mcResult = (correct) => ({
   expected: 'Planung',
   explanation: 'Planung, Organisation und Kontrolle sind dispositive Faktoren; Werkstoffe und Betriebsmittel sind Elementarfaktoren.'
 });
+
+const tfResult = (correct) => ({ correct, expected: 'Wahr', explanation: 'Beim Minimalprinzip ist das Ergebnis fest und der Einsatz wird minimiert.' });
+const clozeResult = (correct) => ({ correct, expected: 'Minimalprinzip', explanation: 'Das Maximalprinzip hält dagegen den Einsatz fest.' });
 
 const json = (body, status = 200) => ({ status, body });
 
@@ -115,8 +119,14 @@ const tabTo = (name) => async (page) => {
   throw new Error(`could not tab to ${name}`);
 };
 
+const answerCloze = (text) => async (page) => {
+  await page.getByRole('textbox', { name: 'Antwort' }).fill(text);
+  await page.getByRole('button', { name: 'Prüfen' }).click();
+};
+
 const SCENARIOS = [
   { name: 'home', path: '/', wait: 'a[href="/run"]' },
+  { name: 'nav-focus', path: '/costs', ready: 'text=Dieser Monat', act: tabTo('Module'), wait: 'text=Dieser Monat' },
   { name: 'run-intro', path: '/run', runs: [run(intro, mc(1))], wait: 'text=Neues Kapitel' },
   {
     name: 'run-mc-wrong', path: '/run', runs: [run(mc(0), tf(1))], answer: mcResult(false),
@@ -127,6 +137,16 @@ const SCENARIOS = [
     act: (page) => page.getByRole('button', { name: 'Planung' }).click(), wait: 'text=Richtig'
   },
   { name: 'run-mc-focus', path: '/run', runs: [run(mc(0), tf(1))], act: tabTo('Betriebsmittel'), wait: 'text=Werkstoffe' },
+  {
+    name: 'run-tf-correct', path: '/run', runs: [run(tf(0))], answer: tfResult(true),
+    act: (page) => page.getByRole('button', { name: 'Wahr' }).click(), wait: 'h2:text-is("Richtig")'
+  },
+  {
+    name: 'run-tf-wrong', path: '/run', runs: [run(tf(0))], answer: tfResult(false),
+    act: (page) => page.getByRole('button', { name: 'Falsch' }).click(), wait: 'text=Richtige Antwort'
+  },
+  { name: 'run-cloze-correct', path: '/run', runs: [run(cloze(0))], answer: clozeResult(true), act: answerCloze('Minimalprinzip'), wait: 'h2:text-is("Richtig")' },
+  { name: 'run-cloze-wrong', path: '/run', runs: [run(cloze(0))], answer: clozeResult(false), act: answerCloze('Maximalprinzip'), wait: 'text=Richtige Antwort' },
   { name: 'run-free-unavailable', path: '/run', runs: [run(free(0))], wait: 'text=Wusste ich nicht' },
   {
     name: 'run-stale', path: '/run', runs: [run(mc(0), tf(1)), run(done(mc(0)), tf(1))], answer: json({ detail: 'Schon beantwortet' }, 409),
@@ -190,7 +210,7 @@ try {
         const page = await context.newPage();
         await page.goto(origin + scenario.path, { waitUntil: 'networkidle' });
         if (scenario.act) {
-          await page.locator('main button, main a').first().waitFor();
+          await page.locator(scenario.ready ?? 'main button, main a').first().waitFor();
           await scenario.act(page);
         }
         await page.locator(scenario.wait).first().waitFor({ timeout: 5000 });
