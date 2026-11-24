@@ -1,7 +1,7 @@
 # studyrun: Zen look
 
 Date: 2026-11-24
-Status: draft, awaiting Paul's approval
+Status: approved 2026-11-24
 
 ## Why
 
@@ -30,6 +30,8 @@ files. studyrun shipped with a plain look of its own.
 
 - Green and red keep their meaning of correct and wrong (Catppuccin green and
   red, as `--success` and `--error`), so the accent can't be either of them.
+  Red also marks errors and failed states (error messages, the failed chapter
+  chip, the delete action); green means "correct" and nothing else.
 - Contrast: body text and muted text keep at least 4.5:1 on their surfaces in
   both themes, the same rule the family's token files state.
 - The existing component tests keep passing. Visual changes must not break
