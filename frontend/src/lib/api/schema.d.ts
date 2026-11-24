@@ -882,6 +882,10 @@ export interface components {
         RunOut: {
             /** Id */
             id: number | null;
+            /** Subject Id */
+            subject_id: number | null;
+            /** Subject Name */
+            subject_name: string | null;
             /** Entries */
             entries: (components["schemas"]["IntroEntryOut"] | components["schemas"]["ItemEntryOut"])[];
         };
@@ -921,6 +925,11 @@ export interface components {
              * Format: date
              */
             starts_on: string;
+        };
+        /** StartRunIn */
+        StartRunIn: {
+            /** Subject Id */
+            subject_id?: number | null;
         };
         /** SubjectImport */
         SubjectImport: {
@@ -1283,7 +1292,9 @@ export interface operations {
     };
     current_run_api_runs_current_get: {
         parameters: {
-            query?: never;
+            query?: {
+                subject_id?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1299,6 +1310,15 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentRunOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     start_run_api_runs_post: {
@@ -1308,7 +1328,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartRunIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1317,6 +1341,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

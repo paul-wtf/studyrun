@@ -1,20 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fsrs import Card, State
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.models.db import (
+    AttemptStatus,
     Booklet,
     Chapter,
     ChapterStatus,
+    ExamAttempt,
     Item,
     ItemKind,
     ItemStatus,
     Module,
     ReviewState,
+    Subject,
 )
 
 
@@ -93,3 +96,27 @@ async def make_item(
         )
         await session.flush()
     return item
+
+
+async def make_subject(
+    session: AsyncSession,
+    name: str,
+    *,
+    sitting: date | None = None,
+    status: AttemptStatus = AttemptStatus.registered,
+    modules: tuple[Module, ...] = (),
+) -> Subject:
+    subject = Subject(
+        name=name,
+        duration_minutes=90,
+        earliest_semester="3a",
+        sittings=[sitting.isoformat()] if sitting else [],
+    )
+    session.add(subject)
+    await session.flush()
+    if sitting is not None:
+        session.add(ExamAttempt(subject_id=subject.id, sitting=sitting, status=status))
+    for module in modules:
+        module.subject_id = subject.id
+    await session.flush()
+    return subject

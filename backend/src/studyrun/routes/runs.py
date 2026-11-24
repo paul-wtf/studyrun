@@ -16,7 +16,16 @@ from studyrun.ai.llm import LLM, LLMUnavailable
 from studyrun.config import Settings
 from studyrun.content.schemas import Concept
 from studyrun.deps import get_llm, get_now, get_settings
-from studyrun.models.db import Chapter, ChapterStatus, Item, ItemKind, ItemStatus, ReviewState, Run
+from studyrun.models.db import (
+    Chapter,
+    ChapterStatus,
+    Item,
+    ItemKind,
+    ItemStatus,
+    ReviewState,
+    Run,
+    Subject,
+)
 from studyrun.routes.modules import Session
 from studyrun.study.answers import check_objective, public_view
 from studyrun.study.assemble import build_run
@@ -28,6 +37,10 @@ router = APIRouter()
 Now = Annotated[datetime, Depends(get_now)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Llm = Annotated[LLM, Depends(get_llm)]
+
+
+class StartRunIn(BaseModel):
+    subject_id: int | None = None
 
 
 class AnswerIn(BaseModel):
@@ -103,6 +116,8 @@ EntryOut = Annotated[IntroEntryOut | ItemEntryOut, Field(discriminator="type")]
 
 class RunOut(BaseModel):
     id: int | None
+    subject_id: int | None
+    subject_name: str | None
     entries: list[EntryOut]
 
 
@@ -163,6 +178,15 @@ def _store(run: Run, n: int, entry: dict[str, Any]) -> None:
     run.entries = [entry if i == n else e for i, e in enumerate(run.entries)]
 
 
+async def _subject(session: AsyncSession, subject_id: int | None) -> Subject | None:
+    if subject_id is None:
+        return None
+    subject = await session.get(Subject, subject_id)
+    if subject is None:
+        raise HTTPException(404, "Fach nicht gefunden")
+    return subject
+
+
 async def _run_out(session: AsyncSession, run: Run) -> RunOut:
     chapter_ids = [e["chapter_id"] for e in run.entries if e["type"] == "intro"]
     item_ids = [e["item_id"] for e in run.entries if e["type"] == "item"]
@@ -218,15 +242,27 @@ async def _run_out(session: AsyncSession, run: Run) -> RunOut:
                     item=_ITEM_VIEW.validate_python(view),
                 )
             )
-    return RunOut(id=run.id, entries=entries)
+    subject = await _subject(session, run.subject_id)
+    return RunOut(
+        id=run.id,
+        subject_id=run.subject_id,
+        subject_name=None if subject is None else subject.name,
+        entries=entries,
+    )
 
 
-async def _unfinished_run(session: AsyncSession, settings: Settings, now: datetime) -> Run | None:
+async def _unfinished_run(
+    session: AsyncSession, settings: Settings, now: datetime, subject_id: int | None
+) -> Run | None:
     local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
     return (
         await session.scalars(
             select(Run)
-            .where(Run.local_date == local_date, Run.finished_at.is_(None))
+            .where(
+                Run.local_date == local_date,
+                Run.finished_at.is_(None),
+                Run.subject_id.is_(None) if subject_id is None else Run.subject_id == subject_id,
+            )
             .order_by(Run.id.desc())
             .limit(1)
         )
@@ -234,20 +270,32 @@ async def _unfinished_run(session: AsyncSession, settings: Settings, now: dateti
 
 
 @router.get("/runs/current")
-async def current_run(session: Session, settings: AppSettings, now: Now) -> CurrentRunOut:
-    run = await _unfinished_run(session, settings, now)
+async def current_run(
+    session: Session, settings: AppSettings, now: Now, subject_id: int | None = None
+) -> CurrentRunOut:
+    await _subject(session, subject_id)
+    run = await _unfinished_run(session, settings, now, subject_id)
     return CurrentRunOut(run=None if run is None else await _run_out(session, run))
 
 
 @router.post("/runs")
-async def start_run(session: Session, settings: AppSettings, now: Now) -> RunOut:
-    run = await _unfinished_run(session, settings, now)
+async def start_run(
+    session: Session, settings: AppSettings, now: Now, body: StartRunIn | None = None
+) -> RunOut:
+    subject_id = None if body is None else body.subject_id
+    subject = await _subject(session, subject_id)
+    run = await _unfinished_run(session, settings, now, subject_id)
     if run is None:
-        entries = await build_run(session, settings, now)
+        entries = await build_run(session, settings, now, subject_id=subject_id)
         if not entries:
-            return RunOut(id=None, entries=[])
+            return RunOut(
+                id=None,
+                subject_id=subject_id,
+                subject_name=None if subject is None else subject.name,
+                entries=[],
+            )
         local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
-        run = Run(local_date=local_date, entries=entries)
+        run = Run(local_date=local_date, subject_id=subject_id, entries=entries)
         session.add(run)
         await session.flush()
     return await _run_out(session, run)
