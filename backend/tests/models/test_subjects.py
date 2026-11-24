@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.exc import IntegrityError
 
 from studyrun.models.db import (
@@ -85,6 +85,10 @@ async def test_module_subject_set_null_on_delete(db_session):
 async def test_subject_name_unique(db_session):
     db_session.add(_subject())
     await db_session.flush()
-    db_session.add(_subject())
     with pytest.raises(IntegrityError):
-        await db_session.flush()
+        async with db_session.begin_nested():
+            await db_session.execute(
+                insert(Subject).values(
+                    name="Statistik", duration_minutes=60, earliest_semester="3a"
+                )
+            )
