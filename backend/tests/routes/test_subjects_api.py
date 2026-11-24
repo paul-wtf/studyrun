@@ -34,7 +34,7 @@ async def _subject(client, name):
 async def test_import_creates_then_updates_keeping_state(api):
     client, app = api
     _today(app, 2026, 11, 1)
-    assert await _import(client) == {"created": 2, "updated": 0}
+    assert await _import(client) == {"created": 2, "updated": 0, "kept_sittings": 0}
     alpha = await _subject(client, "Alpha")
     assert alpha["sittings"] == ["2027-02-01", "2027-03-10"]
     assert alpha["pass_mark"] == 50
@@ -63,7 +63,7 @@ async def test_import_creates_then_updates_keeping_state(api):
             }
         ],
     }
-    assert await _import(client, changed) == {"created": 0, "updated": 1}
+    assert await _import(client, changed) == {"created": 0, "updated": 1, "kept_sittings": 0}
     alpha = await _subject(client, "Alpha")
     assert alpha["duration_minutes"] == 120
     assert alpha["earliest_semester"] == "3b"
@@ -166,3 +166,99 @@ async def test_attempt_rules(api):
     assert (await client.delete(f"/api/attempts/{again['id']}")).status_code == 204
     attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
     assert [a["status"] for a in attempts] == ["failed"]
+
+
+async def test_create_rejects_past_sitting_without_deleting(api):
+    client, app = api
+    _today(app, 2027, 2, 10)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    url = f"/api/subjects/{alpha['id']}/attempts"
+    await client.post(url, json={"sitting": "2027-03-10", "status": "planned"})
+    resp = await client.post(url, json={"sitting": "2027-02-01", "status": "planned"})
+    assert resp.status_code == 422
+    attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
+    assert [a["sitting"] for a in attempts] == ["2027-03-10"]
+
+
+async def test_open_past_attempt_is_not_replaced(api):
+    client, app = api
+    _today(app, 2027, 2, 1)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    url = f"/api/subjects/{alpha['id']}/attempts"
+    await client.post(url, json={"sitting": "2027-02-01", "status": "registered"})
+    _today(app, 2027, 2, 15)
+    await client.post(url, json={"sitting": "2027-03-10", "status": "planned"})
+    attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
+    assert [(a["sitting"], a["status"]) for a in attempts] == [
+        ("2027-02-01", "registered"),
+        ("2027-03-10", "planned"),
+    ]
+
+
+async def test_reimport_keeps_referenced_sittings(api):
+    client, app = api
+    _today(app, 2027, 2, 1)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    url = f"/api/subjects/{alpha['id']}/attempts"
+    failed = (await client.post(url, json={"sitting": "2027-02-01", "status": "planned"})).json()
+    await client.patch(f"/api/attempts/{failed['id']}", json={"status": "failed"})
+    await client.post(url, json={"sitting": "2027-03-10", "status": "planned"})
+    shrunk = {
+        "semesters": {},
+        "subjects": [{**IMPORT["subjects"][0], "sittings": ["2027-05-05"]}],
+    }
+    assert await _import(client, shrunk) == {"created": 0, "updated": 1, "kept_sittings": 2}
+    alpha = await _subject(client, "Alpha")
+    assert alpha["sittings"] == ["2027-02-01", "2027-03-10", "2027-05-05"]
+    assert len(alpha["attempts"]) == 2
+
+
+async def _attempt(client, app, today, sitting, status):
+    _today(app, *today)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    resp = await client.post(
+        f"/api/subjects/{alpha['id']}/attempts", json={"sitting": sitting, "status": status}
+    )
+    return alpha, resp.json()
+
+
+async def _set(client, attempt, status):
+    return (
+        await client.patch(f"/api/attempts/{attempt['id']}", json={"status": status})
+    ).status_code
+
+
+async def test_transitions_allowed(api):
+    client, app = api
+    alpha, a = await _attempt(client, app, (2027, 2, 1), "2027-03-10", "planned")
+    assert await _set(client, a, "registered") == 200
+    assert await _set(client, a, "planned") == 200
+    _today(app, 2027, 3, 10)
+    assert await _set(client, a, "registered") == 200
+    assert await _set(client, a, "passed") == 200
+    assert await _set(client, a, "failed") == 200
+    assert await _set(client, a, "passed") == 200
+    attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
+    assert [x["status"] for x in attempts] == ["passed"]
+
+
+async def test_transitions_rejected(api):
+    client, app = api
+    alpha, a = await _attempt(client, app, (2027, 2, 1), "2027-03-10", "planned")
+    assert await _set(client, a, "planned") == 409
+    assert await _set(client, a, "passed") == 409
+    assert await _set(client, a, "failed") == 409
+    _today(app, 2027, 3, 11)
+    assert await _set(client, a, "registered") == 409
+    assert await _set(client, a, "failed") == 200
+    assert await _set(client, a, "failed") == 409
+    assert await _set(client, a, "planned") == 409
+    assert await _set(client, a, "registered") == 409
+    assert await _set(client, a, "passed") == 200
+    assert await _set(client, a, "planned") == 409
+    attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
+    assert [x["status"] for x in attempts] == ["passed"]

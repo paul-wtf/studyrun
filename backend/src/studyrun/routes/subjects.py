@@ -69,6 +69,7 @@ class SubjectImport(BaseModel):
 class ImportOut(BaseModel):
     created: int
     updated: int
+    kept_sittings: int
 
 
 class SubjectPatch(BaseModel):
@@ -83,10 +84,6 @@ class AttemptCreate(BaseModel):
 
 class AttemptPatch(BaseModel):
     status: AttemptStatus
-
-
-def _normalize(sittings: list[date]) -> list[str]:
-    return sorted({d.isoformat() for d in sittings})
 
 
 async def _subjects_out(session: AsyncSession, subjects: list[Subject]) -> list[SubjectOut]:
@@ -157,7 +154,14 @@ async def import_subjects(body: SubjectImport, session: Session) -> ImportOut:
             select(Subject).where(Subject.name.in_([e.name for e in body.subjects]))
         )
     }
-    created = updated = 0
+    referenced: dict[int, set[str]] = {}
+    for subject_id, sitting in await session.execute(
+        select(ExamAttempt.subject_id, ExamAttempt.sitting).where(
+            ExamAttempt.subject_id.in_([s.id for s in existing.values()])
+        )
+    ):
+        referenced.setdefault(subject_id, set()).add(sitting.isoformat())
+    created = updated = kept = 0
     for entry in body.subjects:
         subject = existing.get(entry.name)
         if subject is None:
@@ -169,9 +173,12 @@ async def import_subjects(body: SubjectImport, session: Session) -> ImportOut:
         subject.duration_minutes = entry.duration_minutes
         subject.earliest_semester = entry.earliest_semester
         subject.recommended_semester = entry.recommended_semester
-        subject.sittings = _normalize(entry.sittings)
+        wanted = {d.isoformat() for d in entry.sittings}
+        keep = referenced.get(subject.id, set()) - wanted if subject.id else set()
+        kept += len(keep)
+        subject.sittings = sorted(wanted | keep)
     await session.flush()
-    return ImportOut(created=created, updated=updated)
+    return ImportOut(created=created, updated=updated, kept_sittings=kept)
 
 
 @router.get("/subjects")
@@ -223,6 +230,8 @@ async def create_attempt(
     if body.sitting.isoformat() not in subject.sittings:
         raise HTTPException(422, "Der Termin gehört nicht zu den Prüfungsterminen dieses Fachs")
     today = _local_today(settings, now)
+    if body.sitting < today:
+        raise HTTPException(422, "Der Termin liegt in der Vergangenheit")
     await session.execute(
         delete(ExamAttempt).where(
             ExamAttempt.subject_id == subject_id,
@@ -243,10 +252,16 @@ async def patch_attempt(
     attempt_id: int, body: AttemptPatch, session: Session, settings: AppSettings, now: Now
 ) -> AttemptOut:
     attempt = await _get_attempt(session, attempt_id)
-    if body.status in (AttemptStatus.passed, AttemptStatus.failed) and attempt.sitting > (
-        _local_today(settings, now)
-    ):
-        raise HTTPException(409, "Ein Ergebnis gibt es erst ab dem Prüfungstag")
+    today = _local_today(settings, now)
+    was_open, to_open = attempt.status in OPEN, body.status in OPEN
+    if was_open and to_open:
+        if body.status == attempt.status or attempt.sitting < today:
+            raise HTTPException(409, "Dieser Statuswechsel ist nicht möglich")
+    elif was_open:
+        if attempt.sitting > today:
+            raise HTTPException(409, "Ein Ergebnis gibt es erst ab dem Prüfungstag")
+    elif to_open or body.status == attempt.status:
+        raise HTTPException(409, "Ein eingetragenes Ergebnis lässt sich nur korrigieren")
     attempt.status = body.status
     await session.flush()
     return AttemptOut(id=attempt.id, sitting=attempt.sitting, status=attempt.status)

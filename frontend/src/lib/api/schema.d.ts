@@ -703,6 +703,8 @@ export interface components {
             created: number;
             /** Updated */
             updated: number;
+            /** Kept Sittings */
+            kept_sittings: number;
         };
         /** IntroEntryOut */
         IntroEntryOut: {
