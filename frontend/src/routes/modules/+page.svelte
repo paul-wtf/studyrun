@@ -2,15 +2,16 @@
   import { onMount } from 'svelte';
   import { api, errorText, SessionExpiredError } from '#lib/api/client.ts';
 
-  import type { Module } from '#lib/api/models.ts';
+  import type { Module, Subject } from '#lib/api/models.ts';
 
   let modules = $state<Module[]>([]);
+  let subjects = $state<Subject[]>([]);
   let name = $state('');
   let error = $state('');
   let busy = $state(false);
 
   async function load() {
-    modules = await api.get<Module[]>('/api/modules');
+    [modules, subjects] = await Promise.all([api.get<Module[]>('/api/modules'), api.get<Subject[]>('/api/subjects')]);
   }
 
   async function act(fn: () => Promise<unknown>) {
@@ -32,6 +33,8 @@
       name = '';
     });
   const move = (m: Module, to: number) => act(() => api.patch(`/api/modules/${m.id}`, { position: to }));
+  const assign = (m: Module, value: string) =>
+    act(() => api.patch(`/api/modules/${m.id}`, { subject_id: value === '' ? null : Number(value) }));
 
   onMount(() => act(async () => {}));
 </script>
@@ -45,6 +48,20 @@
       <span class="chip">{m.booklets.length} {m.booklets.length === 1 ? 'Heft' : 'Hefte'}</span>
       <button type="button" aria-label="{m.name} nach oben" disabled={busy || i === 0} onclick={() => move(m, i - 1)}>↑</button>
       <button type="button" aria-label="{m.name} nach unten" disabled={busy || i === modules.length - 1} onclick={() => move(m, i + 1)}>↓</button>
+      {#if subjects.length}
+        <select
+          class="subject"
+          aria-label="Fach für {m.name}"
+          value={m.subject_id === null ? '' : String(m.subject_id)}
+          disabled={busy}
+          onchange={(e) => assign(m, e.currentTarget.value)}
+        >
+          <option value="">Kein Fach</option>
+          {#each subjects as s (s.id)}
+            <option value={String(s.id)}>{s.name}</option>
+          {/each}
+        </select>
+      {/if}
     </div>
   {/each}
   <form class="card stack" onsubmit={(e) => { e.preventDefault(); void create(); }}>
@@ -66,4 +83,5 @@
   }
   .name:hover { color: var(--accent-text); }
   .row button { min-width: 48px; min-height: 48px; padding: 0.4rem; }
+  .subject { flex: 1 1 100%; }
 </style>

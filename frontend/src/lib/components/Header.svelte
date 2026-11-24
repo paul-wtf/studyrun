@@ -4,6 +4,8 @@
 
   const LINKS = [
     ['/', 'Start'],
+    ['/plan', 'Plan'],
+    ['/subjects', 'Fächer'],
     ['/modules', 'Module'],
     ['/flags', 'Gemeldet'],
     ['/costs', 'Kosten']
@@ -115,6 +117,18 @@
     .actions {
       grid-column: 2;
       grid-row: 1;
+    }
+  }
+
+  /* Six links have to fit a 360px phone without scrolling. */
+  @media (max-width: 480px) {
+    nav {
+      justify-content: space-between;
+      gap: 0;
+    }
+    nav a {
+      padding: 0 0.15rem;
+      font-size: 0.8rem;
     }
   }
 </style>

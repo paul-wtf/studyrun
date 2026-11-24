@@ -44,6 +44,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const detail = parsed?.detail;
     throw new ApiError(res.status, path, typeof detail === 'string' ? detail : undefined, parsed);
   }
+  if (res.status === 204) return undefined as T;
   if (!isJson) expire();
   return (await res.json()) as T;
 }

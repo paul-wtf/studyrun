@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { api, ApiError, errorText, SessionExpiredError } from '#lib/api/client.ts';
   import type { Run, RunSummaryData } from '#lib/api/models.ts';
   import { isCloze, isFree, isMc, isTrueFalse } from '#lib/api/entries.ts';
@@ -10,7 +11,12 @@
   import FreeQuestion from '#lib/components/FreeQuestion.svelte';
   import RunSummary from '#lib/components/RunSummary.svelte';
 
+  const param = page.url.searchParams.get('subject');
+  const subjectId = param && /^\d+$/.test(param) ? Number(param) : null;
+  const start = () => api.post<Run>('/api/runs', subjectId === null ? undefined : { subject_id: subjectId });
+
   let run = $state<Run | null>(null);
+  let subjectName = $state<string | null>(null);
   let summary = $state<RunSummaryData | null>(null);
   let empty = $state(false);
   let error = $state('');
@@ -37,7 +43,7 @@
 
   async function reload(cause?: unknown) {
     try {
-      const fresh = await api.post<Run>('/api/runs');
+      const fresh = await start();
       if (fresh.entries.length === 0) {
         run = null;
         empty = true;
@@ -56,17 +62,28 @@
 
   onMount(async () => {
     try {
-      run = await api.post<Run>('/api/runs');
-      if (run.entries.length === 0) empty = true;
-      else if (!current) await finish();
+      const fresh = await start();
+      subjectName = fresh.subject_name;
+      if (fresh.entries.length === 0) empty = true;
+      else run = fresh;
+      if (run && !current) await finish();
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = errorText(e);
     }
   });
 </script>
 
+{#if subjectName && !summary && !empty}
+  <h1 class="title">Fach-Run: {subjectName}</h1>
+{/if}
 {#if summary}
-  <RunSummary {summary} />
+  <RunSummary {summary} back={subjectId === null ? '/' : `/subjects/${subjectId}`} />
+{:else if empty && subjectId !== null}
+  <div class="card stack">
+    <h1>Für {subjectName ?? 'dieses Fach'} gibt es gerade nichts</h1>
+    <p>Es ist nichts fällig und kein neues Kapitel bereit. Prüf beim Fach, ob alle Module zugeordnet sind und Fragen haben.</p>
+    <a class="btn primary block" href="/subjects/{subjectId}">Zum Fach</a>
+  </div>
 {:else if empty}
   <div class="card stack">
     <h1>Heute gibt es nichts zu lernen</h1>
@@ -112,4 +129,5 @@
   .fill { height: 100%; background: var(--accent); transition: width var(--dur) var(--ease-out); }
   .quit { min-height: 44px; padding: 0.3rem 0.9rem; }
   .note { margin-bottom: 1rem; }
+  .title { font-size: 1.1rem; margin-bottom: 0.75rem; overflow-wrap: anywhere; }
 </style>

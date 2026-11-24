@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import Page from './+page.svelte';
 import { mockApi } from '#lib/test/mockApi.ts';
+
+const here = vi.hoisted(() => ({ url: new URL('http://localhost/run') }));
+vi.mock('$app/state', () => ({ page: here }));
+
+import Page from './+page.svelte';
 
 const RUN = {
   id: 1,
@@ -26,7 +30,10 @@ const RUN = {
 const SUMMARY = { answered: 1, correct: 1, chapters_introduced: ['Die Zelle'], due_tomorrow: 2 };
 
 describe('run page', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    here.url = new URL('http://localhost/run');
+  });
 
   it('moves to the next entry and shows the summary after finish', async () => {
     const { calls } = mockApi({
@@ -125,5 +132,46 @@ describe('run page', () => {
     await userEvent.click(wahr);
     expect(await screen.findByText('Richtig')).toBeInTheDocument();
     expect(fetchMock.mock.calls.map((c) => c[0]).at(-1)).toBe('/api/runs/2/entries/0/answer');
+  });
+
+  it('starts the daily run without a subject', async () => {
+    const { calls } = mockApi({ 'POST /api/runs': RUN });
+    render(Page);
+    await screen.findByText('Die Zelle');
+    expect(calls[0].body).toBeUndefined();
+    expect(screen.queryByRole('heading', { name: /Fach-Run/ })).not.toBeInTheDocument();
+  });
+
+  it('starts a subject run and names the subject', async () => {
+    here.url = new URL('http://localhost/run?subject=3');
+    const { calls } = mockApi({ 'POST /api/runs': { ...RUN, subject_id: 3, subject_name: 'Rechnungswesen' }, 'POST /api/runs/1/finish': SUMMARY });
+    render(Page);
+    expect(await screen.findByRole('heading', { name: 'Fach-Run: Rechnungswesen' })).toBeInTheDocument();
+    expect(calls[0].body).toEqual({ subject_id: 3 });
+    await userEvent.click(screen.getByRole('button', { name: 'Beenden' }));
+    expect(await screen.findByRole('link', { name: 'Fertig' })).toHaveAttribute('href', '/subjects/3');
+  });
+
+  it('keeps the subject when the run is reloaded', async () => {
+    here.url = new URL('http://localhost/run?subject=3');
+    const subjectRun = { ...RUN, subject_id: 3, subject_name: 'Rechnungswesen' };
+    const { calls, fetchMock } = mockApi({ 'POST /api/runs': subjectRun });
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify(subjectRun), { status: 200, headers: { 'content-type': 'application/json' } }));
+    fetchMock.mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ detail: 'schon beantwortet' }), { status: 409, headers: { 'content-type': 'application/json' } })
+    );
+    render(Page);
+    await userEvent.click(await screen.findByRole('button', { name: 'Weiter' }));
+    await screen.findByText(/auf einem anderen Gerät beantwortet/);
+    expect(fetchMock.mock.calls.at(-1)?.[1]?.body).toBe(JSON.stringify({ subject_id: 3 }));
+    expect(calls).toHaveLength(1);
+  });
+
+  it('points an empty subject run back to its subject', async () => {
+    here.url = new URL('http://localhost/run?subject=3');
+    mockApi({ 'POST /api/runs': { id: null, subject_id: 3, subject_name: 'Rechnungswesen', entries: [] } });
+    render(Page);
+    expect(await screen.findByText(/Für Rechnungswesen gibt es gerade nichts/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zum Fach' })).toHaveAttribute('href', '/subjects/3');
   });
 });

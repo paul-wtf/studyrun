@@ -31,13 +31,14 @@ const modules = [
     id: 1,
     name: 'Betriebswirtschaftslehre',
     position: 0,
+    subject_id: 1,
     booklets: [
       { id: 1, filename: 'BWL-Grundlagen.pdf', page_count: 84, status: 'ready', chapters: { pending: 1, generating: 1, verifying: 0, ready: 3, failed: 1, skipped: 0 } },
       { id: 2, filename: 'Kostenrechnung.pdf', page_count: 56, status: 'processing', chapters: { pending: 0, generating: 0, verifying: 0, ready: 0, failed: 0, skipped: 0 } }
     ]
   },
-  { id: 2, name: 'Statistik', position: 1, booklets: [{ id: 3, filename: 'Deskriptive-Statistik.pdf', page_count: 40, status: 'ready', chapters: { pending: 0, generating: 0, verifying: 0, ready: 4, failed: 0, skipped: 0 } }] },
-  { id: 3, name: 'Wirtschaftsrecht', position: 2, booklets: [] }
+  { id: 2, name: 'Statistik', position: 1, subject_id: 2, booklets: [{ id: 3, filename: 'Deskriptive-Statistik.pdf', page_count: 40, status: 'ready', chapters: { pending: 0, generating: 0, verifying: 0, ready: 4, failed: 0, skipped: 0 } }] },
+  { id: 3, name: 'Wirtschaftsrecht', position: 2, subject_id: null, booklets: [] }
 ];
 
 const chapters = [
@@ -102,12 +103,77 @@ const clozeResult = (correct) => ({ correct, expected: 'Minimalprinzip', explana
 
 const json = (body, status = 200) => ({ status, body });
 
+// The browser clock is pinned to this day, and the plan fixtures are dated around it.
+const TODAY = new Date('2026-11-24T10:00:00+01:00');
+
+const attempt = (id, sitting, status) => ({ id, sitting, status });
+const subject = (id, name, extra) => ({
+  id, name, duration_minutes: 90, earliest_semester: '3a', recommended_semester: 3, not_before: null, pass_mark: 50,
+  module_ids: [], attempts: [], introduced_share: 0, unlocked: false, ...extra
+});
+const subjects = [
+  subject(1, 'Kosten- und Leistungsrechnung', { sittings: ['2026-12-20', '2027-03-21'], module_ids: [1], introduced_share: 0.86, unlocked: true }),
+  subject(2, 'Statistik', { duration_minutes: 120, sittings: ['2026-12-20', '2027-02-14', '2027-05-16'], module_ids: [2], introduced_share: 0.4, attempts: [attempt(21, '2027-02-14', 'registered')] }),
+  subject(3, 'Personalwirtschaft', { recommended_semester: 4, sittings: ['2027-01-17', '2027-03-21'], attempts: [attempt(31, '2027-03-21', 'planned')] }),
+  subject(4, 'Wirtschaftsrecht', { sittings: ['2027-01-17', '2027-04-18'] }),
+  subject(5, 'Marketing', { earliest_semester: '6a', recommended_semester: 6, sittings: ['2027-01-17', '2027-05-16'] }),
+  subject(6, 'Grundlagen der BWL', { sittings: ['2026-11-15', '2027-02-14'], attempts: [attempt(61, '2026-11-15', 'registered')] }),
+  subject(7, 'Wirtschaftsmathematik', { sittings: ['2026-10-11', '2027-01-17'], attempts: [attempt(71, '2026-06-14', 'failed'), attempt(72, '2026-10-11', 'passed')] })
+];
+const semesters = [
+  { label: '3a', starts_on: '2026-04-01' },
+  { label: '3b', starts_on: '2026-10-01' },
+  { label: '4a', starts_on: '2027-04-01' }
+];
+const entry = (s, state, extra = {}) => ({
+  subject_id: s.id, subject_name: s.name, state, sitting: null, register_by: null, feasible: true, study_from: null, study_until: null, ...extra
+});
+const plan = {
+  entries: [
+    entry(subjects[0], 'open', { sitting: '2026-12-20', register_by: '2026-11-29', study_from: '2026-11-24', study_until: '2026-12-14' }),
+    entry(subjects[1], 'registered', { sitting: '2027-02-14', study_from: '2026-12-14', study_until: '2027-01-26' }),
+    entry(subjects[2], 'planned', { sitting: '2027-03-21', register_by: '2027-02-28', feasible: false, study_from: '2027-01-26', study_until: '2027-03-30' }),
+    entry(subjects[3], 'no_material'),
+    entry(subjects[4], 'not_plannable'),
+    entry(subjects[5], 'needs_result', { sitting: '2026-11-15' }),
+    entry(subjects[6], 'passed', { sitting: '2026-10-11' })
+  ],
+  conflicts: [
+    { subject_id: 3, subject_name: 'Personalwirtschaft', kind: 'squeezes_other', message: 'Dein Termin für Personalwirtschaft macht die Vorbereitung auf Statistik zu knapp.' },
+    { subject_id: 4, subject_name: 'Wirtschaftsrecht', kind: 'no_material', message: 'Stoff fehlt: Für dieses Fach gibt es noch kein Heft.' },
+    { subject_id: 5, subject_name: 'Marketing', kind: 'missing_semester', message: 'Für Semester 6a fehlt das Startdatum.' }
+  ],
+  order: [1, 2, 3],
+  pace_per_day: 6.4
+};
+const progress = {
+  week: {
+    days: ['23', '24', '25', '26', '27', '28', '29'].map((d, i) => ({ date: `2026-11-${d}`, done: i < 2 })),
+    goal: 4,
+    done_count: 2
+  },
+  subjects: subjects.map((s) => ({ subject_id: s.id, introduced: s.introduced_share, solid: s.introduced_share / 2 }))
+};
+const mocks = [
+  { id: 14, started_at: '2026-11-21T17:05:00Z', deadline: '2026-11-21T18:35:00Z', finished_at: '2026-11-21T18:21:00Z', score: 63, passed: true },
+  { id: 11, started_at: '2026-11-12T18:40:00Z', deadline: '2026-11-12T20:10:00Z', finished_at: '2026-11-12T20:09:00Z', score: 44, passed: false }
+];
+const openMock = { id: 15, started_at: '2026-11-24T08:00:00Z', deadline: '2026-11-24T09:30:00Z', finished_at: null, score: null, passed: null };
+
 function base(method, path) {
   if (method === 'GET' && path === '/api/modules') return json(modules);
   if (method === 'GET' && path === '/api/costs') return json(costs);
   if (method === 'GET' && path === '/api/flags') return json(flags);
   if (method === 'GET' && /^\/api\/modules\/\d+\/chapters$/.test(path)) return json(chapters);
   if (method === 'GET' && path === '/api/runs/current') return json({ run: run(done(intro), mc(1)) });
+  if (method === 'GET' && path.startsWith('/api/runs/current?subject_id=')) return json({ run: current.subjectRun ? run(done(intro), mc(1)) : null });
+  if (method === 'GET' && path === '/api/subjects') return json(subjects);
+  if (method === 'GET' && /^\/api\/subjects\/\d+$/.test(path)) return json(subjects.find((s) => `/api/subjects/${s.id}` === path));
+  if (method === 'GET' && /^\/api\/subjects\/\d+\/mocks$/.test(path)) return json(current.openMock ? [openMock, ...mocks] : mocks);
+  if (method === 'GET' && path === `/api/mock/${openMock.id}`) return json({ ...openMock, subject_id: 1, subject_name: subjects[0].name, finished: false, finishing: true, expired: true, entries: [], result: null });
+  if (method === 'GET' && path === '/api/semesters') return json(semesters);
+  if (method === 'GET' && path === '/api/plan') return json(plan);
+  if (method === 'GET' && path === '/api/progress') return json(progress);
   return undefined;
 }
 
@@ -154,10 +220,21 @@ const SCENARIOS = [
   },
   { name: 'run-summary', path: '/run', runs: [run(done(intro), done(mc(1)))], wait: 'text=Geschafft' },
   { name: 'session-expired', path: '/modules', expired: true, wait: 'text=Sitzung abgelaufen' },
-  { name: 'modules', path: '/modules', wait: 'text=Statistik' },
+  { name: 'modules', path: '/modules', wait: 'a:text-is("Statistik")' },
   { name: 'module-detail', path: '/modules/1', wait: 'text=Rechtsformen' },
   { name: 'flags', path: '/flags', wait: 'text=Im Heft nachlesen' },
-  { name: 'costs', path: '/costs', wait: 'text=Dieser Monat' }
+  { name: 'costs', path: '/costs', wait: 'text=Dieser Monat' },
+  { name: 'plan', path: '/plan', wait: 'text=Termine' },
+  { name: 'subjects', path: '/subjects', wait: 'text=Semesterstarts' },
+  { name: 'subject', path: '/subjects/1', wait: 'text=Bosskämpfe' },
+  { name: 'subject-open', path: '/subjects/1', subjectRun: true, openMock: true, wait: 'text=Auswertung abschließen' },
+  { name: 'subject-results', path: '/subjects/7', wait: 'text=Prüfungsversuche' },
+  {
+    name: 'plan-choose', path: '/plan', ready: 'text=Termine',
+    act: (page) => page.getByRole('article', { name: 'Kosten- und Leistungsrechnung' }).getByRole('button', { name: 'Anderen Termin wählen' }).click(),
+    wait: 'text=Termin übernehmen'
+  },
+  { name: 'run-subject', path: '/run?subject=1', runs: [{ ...run(mc(0), tf(1)), subject_id: 1, subject_name: subjects[0].name }], wait: 'text=Fach-Run' }
 ];
 
 let current = SCENARIOS[0];
@@ -184,7 +261,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname.startsWith('/api/')) {
-    const { status, body } = api(req.method, url.pathname);
+    const { status, body } = api(req.method, url.pathname + url.search);
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
     return;
@@ -206,6 +283,7 @@ try {
         current = scenario;
         runCalls = 0;
         const context = await browser.newContext({ viewport, deviceScaleFactor: 2 });
+        await context.clock.setFixedTime(TODAY);
         if (theme) await context.addInitScript((t) => localStorage.setItem('studyrun-theme', t), theme);
         const page = await context.newPage();
         await page.goto(origin + scenario.path, { waitUntil: 'networkidle' });
