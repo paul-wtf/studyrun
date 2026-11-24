@@ -91,6 +91,37 @@ async def test_import_rejects_bad_shapes(api):
     assert (await client.get("/api/subjects")).json() == []
 
 
+SEMESTER_DETAIL = "Ungültiges Semester „{}“: erwartet ist eine Zahl mit a oder b, etwa 3a."
+
+
+async def test_import_rejects_bad_semester_labels(api):
+    client, _ = api
+    sub = IMPORT["subjects"][0]
+    bad = [
+        ({"semesters": {"3c": "2026-10-01"}, "subjects": []}, "3c"),
+        ({"semesters": {"Herbst": "2026-10-01"}, "subjects": []}, "Herbst"),
+        ({"semesters": {"1" * 16 + "a": "2026-10-01"}, "subjects": []}, "1" * 16 + "a"),
+        ({"semesters": {}, "subjects": [{**sub, "earliest_semester": "a3"}]}, "a3"),
+    ]
+    for body, label in bad:
+        resp = await client.post("/api/subjects/import", json=body)
+        assert resp.status_code == 422, body
+        assert resp.json()["detail"] == SEMESTER_DETAIL.format(label)
+    assert (await client.get("/api/subjects")).json() == []
+    assert (await client.get("/api/semesters")).json() == []
+
+
+async def test_semester_put_rejects_bad_labels(api):
+    client, _ = api
+    for label in ("4c", "a", "4", "1" * 16 + "b"):
+        resp = await client.put(f"/api/semesters/{label}", json={"starts_on": "2027-04-01"})
+        assert resp.status_code == 422, label
+        assert resp.json()["detail"] == SEMESTER_DETAIL.format(label)
+    resp = await client.put(f"/api/semesters/{'1' * 15}b", json={"starts_on": "2027-04-01"})
+    assert resp.status_code == 200
+    assert [s["label"] for s in (await client.get("/api/semesters")).json()] == ["1" * 15 + "b"]
+
+
 async def test_semester_put_and_subject_patch_validation(api):
     client, _ = api
     resp = await client.put("/api/semesters/4a", json={"starts_on": "2027-04-01"})
@@ -166,6 +197,37 @@ async def test_attempt_rules(api):
     assert (await client.delete(f"/api/attempts/{again['id']}")).status_code == 204
     attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
     assert [a["status"] for a in attempts] == ["failed"]
+
+
+async def test_create_rejects_a_passed_subject(api):
+    client, app = api
+    _today(app, 2027, 2, 1)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    url = f"/api/subjects/{alpha['id']}/attempts"
+    registered = (
+        await client.post(url, json={"sitting": "2027-02-01", "status": "registered"})
+    ).json()
+    resp = await client.patch(f"/api/attempts/{registered['id']}", json={"status": "passed"})
+    assert resp.status_code == 200
+
+    resp = await client.post(url, json={"sitting": "2027-03-10", "status": "planned"})
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "Das Fach ist schon bestanden"
+    attempts = (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"]
+    assert [a["status"] for a in attempts] == ["passed"]
+
+
+async def test_planned_attempt_in_the_past_can_be_discarded(api):
+    client, app = api
+    _today(app, 2027, 1, 1)
+    await _import(client)
+    alpha = await _subject(client, "Alpha")
+    url = f"/api/subjects/{alpha['id']}/attempts"
+    planned = (await client.post(url, json={"sitting": "2027-02-01", "status": "planned"})).json()
+    _today(app, 2027, 2, 15)
+    assert (await client.delete(f"/api/attempts/{planned['id']}")).status_code == 204
+    assert (await client.get(f"/api/subjects/{alpha['id']}")).json()["attempts"] == []
 
 
 async def test_create_rejects_past_sitting_without_deleting(api):

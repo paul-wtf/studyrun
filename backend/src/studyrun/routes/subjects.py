@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ from studyrun.study.mock import chapter_shares, is_unlocked
 router = APIRouter()
 
 OPEN = (AttemptStatus.planned, AttemptStatus.registered)
+SEMESTER_LABEL = re.compile(r"\d+[ab]")
 
 
 class AttemptOut(BaseModel):
@@ -142,12 +144,21 @@ async def _get_attempt(session: AsyncSession, attempt_id: int) -> ExamAttempt:
     return attempt
 
 
+def _check_semester(label: str) -> None:
+    if len(label) > 16 or SEMESTER_LABEL.fullmatch(label) is None:
+        raise HTTPException(
+            422, f"Ungültiges Semester „{label}“: erwartet ist eine Zahl mit a oder b, etwa 3a."
+        )
+
+
 def _local_today(settings: AppSettings, now: Now) -> date:
     return now.astimezone(ZoneInfo(settings.timezone)).date()
 
 
 @router.post("/subjects/import")
 async def import_subjects(body: SubjectImport, session: Session) -> ImportOut:
+    for label in [*body.semesters, *(e.earliest_semester for e in body.subjects)]:
+        _check_semester(label)
     for label, starts_on in body.semesters.items():
         semester = await session.get(Semester, label)
         if semester is None:
@@ -218,6 +229,7 @@ async def list_semesters(session: Session) -> list[SemesterOut]:
 
 @router.put("/semesters/{label}")
 async def put_semester(label: str, body: SemesterPut, session: Session) -> SemesterOut:
+    _check_semester(label)
     semester = await session.get(Semester, label)
     if semester is None:
         semester = Semester(label=label, starts_on=body.starts_on)
@@ -233,6 +245,13 @@ async def create_attempt(
     subject_id: int, body: AttemptCreate, session: Session, settings: AppSettings, now: Now
 ) -> AttemptOut:
     subject = await _get_subject(session, subject_id)
+    passed = await session.scalar(
+        select(ExamAttempt.id).where(
+            ExamAttempt.subject_id == subject_id, ExamAttempt.status == AttemptStatus.passed
+        )
+    )
+    if passed is not None:
+        raise HTTPException(409, "Das Fach ist schon bestanden")
     if body.sitting.isoformat() not in subject.sittings:
         raise HTTPException(422, "Der Termin gehört nicht zu den Prüfungsterminen dieses Fachs")
     today = _local_today(settings, now)
