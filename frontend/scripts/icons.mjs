@@ -44,7 +44,8 @@ try {
       `<style>@font-face { font-family: 'JetBrains Mono'; src: url(data:font/woff2;base64,${font}); font-weight: 100 800; }
        body { margin: 0; } svg { display: block; width: ${size}px; height: ${size}px; }</style>${svg({ maskable })}`
     );
-    await page.evaluate(() => document.fonts.ready);
+    const loaded = await page.evaluate(async () => (await document.fonts.load('700 100px "JetBrains Mono"')).length);
+    if (!loaded) throw new Error('JetBrains Mono did not load');
     await page.screenshot({ path: `${root}static/${file}`, omitBackground: true });
     await page.close();
     console.log(`static/${file}`);
