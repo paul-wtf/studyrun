@@ -14,6 +14,16 @@ There is no authentication in the app. Put it behind a forward-auth proxy.
 
 Booklets and generated content never go into git. Tests build their own invented PDFs.
 
+Modules can belong to a subject (Fach) with exam sittings. The subjects page imports subjects
+from a JSON file with semester start dates (labels like `3a`, `3b`) and, per subject, the exam
+duration, the earliest and recommended semester and the sittings. The
+[design's import section](docs/superpowers/specs/2026-11-24-subjects-and-exam-plan-design.md#import)
+has the format. The plan proposes a sitting per subject from the material still to learn and
+the recent pace, with at most one exam a month and registration closing 21 days before. The
+daily run brings in new items in the plan's order, and a subject's mock exam opens once 80 %
+of its chapters are introduced. The JSON of a real exam plan stays out of git like the
+booklets.
+
 ## Local development
 
 Tools (Python 3.12, uv, Node 24, pnpm, helm) come from the nix dev shell:
@@ -74,6 +84,7 @@ All settings are environment variables with the prefix `STUDYRUN_`.
 | `STUDYRUN_GENERATION_MAX_IN_FLIGHT` | `3` | Chapters with an open batch at once |
 | `STUDYRUN_RUN_REVIEW_CAP` | `8` | Reviews per run |
 | `STUDYRUN_RUN_NEW_ITEMS` | `4` | New items per run |
+| `STUDYRUN_WEEKLY_GOAL_DAYS` | `4` | Study days per week for the weekly goal; also sets the planner's pace until there is history |
 | `STUDYRUN_MAX_CHAPTER_PAGES` | `40` | Chapters longer than this are split into windows |
 | `STUDYRUN_CHAPTER_WINDOW_PAGES` | `15` | Window size for split chapters |
 | `STUDYRUN_UPLOAD_MAX_BYTES` | `52428800` | Largest accepted upload (50 MiB) |

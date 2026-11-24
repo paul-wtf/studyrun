@@ -1,7 +1,7 @@
 # studyrun: subjects, exam plan and exam preparation
 
 Date: 2026-11-24
-Status: draft, awaiting Paul's approval
+Status: approved 2026-11-24
 
 ## Why
 
@@ -150,9 +150,10 @@ PDF and handed to him; it doesn't go into git.
   Skipped chapters don't count. A subject without any module or
   booklet is "Stoff fehlt": the planner shows its sittings but proposes none
   and lists it as a conflict until material is uploaded. (My call.) Effort is
-  converted to days using Paul's measured pace (items learned per study day over the last 28
-  days; until there is enough history, the default from the run sizes, four
-  new items per run).
+  converted to calendar days using Paul's measured pace: new items learned
+  per calendar day over the last 28 days. Until those 28 days hold seven study
+  days, the pace is the new items per run times the weekly study days of the
+  goal, divided by seven (4 × 4 / 7 by default).
 - **Order of study:** one subject at a time. The planner lays the subjects
   out in the order of their sittings, and each subject's learning starts when the previous one's
   material is learned, not when its exam is over. Reviews of earlier

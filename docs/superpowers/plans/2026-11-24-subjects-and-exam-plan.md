@@ -15,7 +15,7 @@
 - Rules: at most one exam per calendar month (counting future planned and registered attempts and passed ones). Registration closes 21 days before a sitting. Never plan before the eligible date (start of `earliest_semester`) or before `not_before`. Aim at the recommended semester when feasible.
 - Semester calendar: a start date per half-semester label (`3a`, `3b`, …, `7b`). A missing label makes subjects that need it "nicht planbar", and the import accepts that.
 - Effort: unlearned active items (no ReviewState, or FSRS state Learning/Relearning), including those of chapters not yet introduced; chapters without items (pending/generating/verifying/failed) estimate 2 items per page, skipped chapters excluded; a subject without material → "Stoff fehlt", no proposal.
-- Pace: items moved out of "new" per study day over the last 28 Berlin days (study day = a day with ≥ 1 review log); fallback `settings.run_new_items` per day when fewer than 7 study days exist.
+- Pace: items moved out of "new" per calendar day over the last 28 Berlin days; fallback `settings.run_new_items × settings.weekly_goal_days / 7` per day when fewer than 7 study days exist (study day = a day with ≥ 1 review log).
 - Study order: one subject at a time in plan order; the next one starts when the previous one's material is learned. Modules without a subject come after all planned subjects.
 - Pull-forward: within 21 days before a planned or registered sitting, the daily run adds items of that subject due within those 21 days, up to `run_review_cap` total reviews.
 - Mock exam: unlocks at ≥ 80 % of the subject's chapters introduced (excluding skipped); duration = subject duration; pass mark default 50 % (per subject); no feedback until the end; free answers graded at the end under the daily cap, ungraded → self-rating.
@@ -47,7 +47,7 @@
   - `AttemptStatus = planned | registered | passed | failed`; `ExamAttempt(id, subject_id → Subject cascade, sitting: date, status: AttemptStatus, created_at, updated_at)`
   - `Module.subject_id: int | None → Subject (SET NULL)`
   - `Run.subject_id: int | None → Subject (SET NULL)`
-  - `MockExam(id, subject_id → Subject cascade, started_at, deadline: datetime, finished_at: datetime | None, entries: list[dict] JSONB, score: int | None, passed: bool | None)`
+  - `MockExam(id, subject_id → Subject cascade, started_at, deadline: datetime, finished_at: datetime | None, entries: list[dict] JSONB, score: int | None, passed: bool | None, pass_mark: int)`; the pass mark is copied from the subject at the start, so a later change doesn't rescore old mock exams
 
 - [ ] **Step 1: Tests:** `test_subject_cascade_deletes_attempts_and_mock_exams`, `test_module_subject_set_null_on_delete`, `test_subject_name_unique`; the existing migration test must cover 0004.
 - [ ] **Step 2: Run, FAIL.** **Step 3: Implement + migration (upgrade and downgrade).** **Step 4: full backend suite, ruff, mypy, PASS.**
@@ -56,7 +56,7 @@
 ### Task 2: Subjects API and import
 
 **Files:**
-- Create: `backend/src/studyrun/routes/subjects.py`, `backend/tests/routes/test_subjects.py`
+- Create: `backend/src/studyrun/routes/subjects.py`, `backend/tests/routes/test_subjects_api.py`
 - Modify: `backend/src/studyrun/routes/modules.py` (`PATCH /api/modules/{id}` accepts `subject_id: int | null`; `ModuleOut` gains `subject_id`)
 
 **Interfaces:**
@@ -98,7 +98,7 @@
   - `build_run(session, settings, now, *, subject_id: int | None = None) -> list[RunEntry]`.
   - Daily (`subject_id=None`): new items and intros come from the first subject in `plan.order` with unlearned material, then modules without a subject, then today's behaviour; reviews from everything; pull-forward for the subject whose planned/registered sitting is within 21 days.
   - Subject run: only that subject's items: due first, new items with intros (gate counted within the subject), then pull-forward by nearest due; same caps as the daily run.
-  - `POST /api/runs {subject_id?}`, `GET /api/runs/current?subject_id=`: one unfinished run per (Berlin day, subject_id); `RunOut` gains `subject_id` and `subject_name`.
+  - `POST /api/runs {subject_id?}`, `GET /api/runs/current?subject_id=`: the daily run resumes within its Berlin day, a subject run resumes per subject regardless of the day it was started; `RunOut` gains `subject_id` and `subject_name`.
 
 - [ ] **Step 1: Tests:** focus follows plan order and moves on when a subject's material is learned; unassigned modules after planned subjects; no subjects → unchanged behaviour (existing tests stay green); pull-forward only inside 21 days and within the cap; subject run contains only that subject and falls back to pulled-forward items when nothing is due; resume per subject; daily and subject runs coexist the same day.
 - [ ] **Steps 2-4:** RED, implement, GREEN; regenerate `schema.d.ts`.
@@ -107,7 +107,7 @@
 ### Task 5: Mock exam backend
 
 **Files:**
-- Create: `backend/src/studyrun/study/mock.py`, `backend/src/studyrun/routes/mock.py`, tests `backend/tests/study/test_mock.py`, `backend/tests/routes/test_mock.py`
+- Create: `backend/src/studyrun/study/mock.py`, `backend/src/studyrun/routes/mock.py`, tests `backend/tests/study/test_mock.py`, `backend/tests/routes/test_mock_api.py`
 
 **Interfaces:**
 - Produces:
