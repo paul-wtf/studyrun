@@ -1,11 +1,17 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="mocha">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/png" href="%sveltekit.assets%/icon-192.png" />
     <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" crossorigin="use-credentials" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#2f5d62" />
+    <meta name="theme-color" content="#181825" />
+    <script>
+      (function () {
+        var t = localStorage.getItem('studyrun-theme');
+        if (t === 'latte' || t === 'mocha') document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
     <title>studyrun</title>
     %sveltekit.head%
   </head>

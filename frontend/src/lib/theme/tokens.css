@@ -1,0 +1,221 @@
+/*
+ * studyrun — Zen token system
+ *
+ * Same design language as paul.wtf, tidalwave and linkhop: opaque Catppuccin
+ * surfaces, no decorative borders, one accent (peach), JetBrains Mono, soft
+ * shadow only on free-floating cards. data-theme="mocha" is dark (default),
+ * "latte" is light.
+ */
+
+:root {
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 16px;
+  --r-pill: 10px;
+
+  --ease-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 200ms;
+  --dur: 350ms;
+  --dur-slow: 350ms;
+
+  --font-display:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono',
+    Menlo, monospace;
+  --font-body:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono',
+    Menlo, monospace;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono',
+    Menlo, monospace;
+
+  /* Mantle border around the viewport with concave corners. Header.svelte
+     overrides --viewport-top to --bar-h wherever the bar is rendered. */
+  --frame: 10px;
+  --bar-h: 60px;
+  --viewport-r: 16px;
+  --viewport-top: var(--frame);
+
+  color-scheme: light dark;
+}
+
+/* Header uses two rows below this width; --bar-h must equal its rendered
+   height or the frame's corners drift off the bar. */
+@media (max-width: 999px) {
+  :root {
+    --bar-h: 104px;
+  }
+}
+
+/* ------------------------------------------------------------------ DARK */
+:root,
+:root[data-theme='mocha'] {
+  --crust: #11111b;
+  --mantle: #181825;
+  --base: #1e1e2e;
+  --surface0: #313244;
+  --surface1: #45475a;
+  --overlay0: #6c7086;
+  --overlay2: #9399b2;
+  --subtext0: #a6adc8;
+  --subtext1: #bac2de;
+
+  --canvas: var(--crust);
+  --canvas-2: var(--mantle);
+
+  --glass-bg: var(--base);
+  --glass-bg-strong: var(--surface0);
+  --glass-border: var(--surface0);
+  --glass-rim: var(--surface1);
+  --glass-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+
+  /* Contrast on crust / mantle / base: text 12.97 / 12.14 / 11.34,
+     text-muted 8.42 / 7.89 / 7.37, accent-text (peach) 10.59 / 9.92 / 9.27. */
+  --text: #cdd6f4;
+  --text-muted: var(--subtext0);
+  --text-dim: var(--overlay2);
+
+  --accent: #fab387;
+  --accent-text: var(--accent);
+  --accent-contrast: var(--crust);
+  --accent-soft: rgba(250, 179, 135, 0.25);
+
+  --success: #a6e3a1;
+  --warning: #f9e2af;
+  --error: #f38ba8;
+  --error-soft: rgba(243, 139, 168, 0.16);
+
+  --wallpaper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMidYMax slice'><circle cx='1190' cy='300' r='110' fill='%23fab387' opacity='0.05'/><circle cx='1190' cy='300' r='72' fill='%23fab387' opacity='0.07'/><path d='M0 560 L140 480 L300 545 L470 430 L640 530 L820 455 L990 540 L1160 470 L1330 550 L1470 500 L1600 555 L1600 900 L0 900 Z' fill='%231c2030' opacity='0.55'/><path d='M0 640 L180 560 L340 625 L520 540 L720 630 L900 560 L1090 645 L1280 575 L1440 640 L1600 590 L1600 900 L0 900 Z' fill='%23181d29' opacity='0.8'/><path d='M0 730 L200 655 L380 715 L580 640 L790 725 L1000 660 L1210 730 L1420 670 L1600 720 L1600 900 L0 900 Z' fill='%23131622'/><path d='M0 810 L240 750 L460 800 L700 740 L950 805 L1200 750 L1430 800 L1600 765 L1600 900 L0 900 Z' fill='%230d0d15'/></svg>");
+
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ LIGHT */
+:root[data-theme='latte'] {
+  --crust: #dce0e8;
+  --mantle: #e6e9ef;
+  --base: #eff1f5;
+  --surface0: #ccd0da;
+  --surface1: #bcc0cc;
+  --overlay0: #9ca0b0;
+  --overlay2: #7c7f93;
+  --subtext0: #6c6f85;
+  --subtext1: #5c5f77;
+
+  --canvas: var(--crust);
+  --canvas-2: var(--mantle);
+
+  --glass-bg: var(--base);
+  --glass-bg-strong: var(--surface0);
+  --glass-border: var(--surface0);
+  --glass-rim: var(--surface1);
+  --glass-shadow: 0 10px 30px -12px rgba(76, 79, 105, 0.25);
+
+  /* Latte's subtext0 and overlay2 fall short of 4.5:1 on crust, so both
+     content roles use subtext1 (crust 4.73 / mantle 5.14 / base 5.53). */
+  --text: #4c4f69;
+  --text-muted: var(--subtext1);
+  --text-dim: var(--subtext1);
+
+  --accent: #fe640b;
+  /* Latte peach is drawn for surfaces: as text it reaches only 2.7:1. This is
+     the same hue darkened until it clears 4.5:1 everywhere content sits
+     (crust 4.55 / mantle 4.95 / base 5.32). Anything read, a fill carrying
+     text, or a focus ring takes --accent-text; the header mark and the moon
+     keep --accent. */
+  --accent-text: #ac4001;
+  --accent-contrast: var(--base);
+  --accent-soft: rgba(254, 100, 11, 0.18);
+
+  /* Catppuccin Latte green is 2.96:1 on base; this is the same hue darkened
+     to 4.60 (base) / 3.93 (crust). Red stays: 4.80 on base. */
+  --success: #327c21;
+  --warning: #df8e1d;
+  --error: #d20f39;
+  --error-soft: rgba(210, 15, 57, 0.1);
+
+  --wallpaper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMidYMax slice'><circle cx='1190' cy='300' r='110' fill='%23fe640b' opacity='0.06'/><circle cx='1190' cy='300' r='72' fill='%23fe640b' opacity='0.08'/><path d='M0 560 L140 480 L300 545 L470 430 L640 530 L820 455 L990 540 L1160 470 L1330 550 L1470 500 L1600 555 L1600 900 L0 900 Z' fill='%23d3d8e2' opacity='0.55'/><path d='M0 640 L180 560 L340 625 L520 540 L720 630 L900 560 L1090 645 L1280 575 L1440 640 L1600 590 L1600 900 L0 900 Z' fill='%23c9cfdc' opacity='0.8'/><path d='M0 730 L200 655 L380 715 L580 640 L790 725 L1000 660 L1210 730 L1420 670 L1600 720 L1600 900 L0 900 Z' fill='%23bfc6d4'/><path d='M0 810 L240 750 L460 800 L700 740 L950 805 L1200 750 L1430 800 L1600 765 L1600 900 L0 900 Z' fill='%23b0b7c7'/></svg>");
+
+  color-scheme: light;
+}
+
+/* ----------------------------------------------------------- GLOBAL BASE */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scrollbar-color: var(--surface1) var(--crust);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--canvas);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--wallpaper);
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection {
+  background: var(--accent-text);
+  color: var(--accent-contrast);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.glass {
+  background: var(--base);
+  border-radius: var(--r-lg);
+  box-shadow: var(--glass-shadow);
+}

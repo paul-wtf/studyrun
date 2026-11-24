@@ -1,41 +1,23 @@
+/* Aliases for the pre-Zen names the unrestyled pages still use. */
 :root {
-  --bg: #f5f3ee;
-  --surface: #ffffff;
-  --text: #1f2a2c;
-  --muted: #5f6b6d;
-  --accent: #2f5d62;
-  --accent-text: #ffffff;
-  --border: #d8d4c9;
-  --good: #2e7d4f;
-  --bad: #b3402f;
-  --radius: 14px;
-  color-scheme: light dark;
+  --bg: var(--canvas);
+  --surface: var(--base);
+  --muted: var(--text-muted);
+  --border: var(--surface0);
+  --good: var(--success);
+  --bad: var(--error);
+  --radius: var(--r-sm);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14191a;
-    --surface: #1d2426;
-    --text: #e8ecea;
-    --muted: #9aa6a4;
-    --accent: #6fb1b8;
-    --accent-text: #0f1a1b;
-    --border: #2e3a3c;
-    --good: #6cc38d;
-    --bad: #e58a78;
-  }
-}
-* { box-sizing: border-box; }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 18px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
 }
 h1, h2 { line-height: 1.25; margin: 0 0 0.5rem; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1.25rem; }
 p { margin: 0 0 0.75rem; }
-a { color: var(--accent); }
+a { color: var(--accent-text); }
 button, .btn {
   font: inherit;
   min-height: 52px;
@@ -53,10 +35,10 @@ button, .btn {
 }
 button:disabled { opacity: 0.55; cursor: default; }
 button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--accent-text);
   outline-offset: 2px;
 }
-.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.primary { background: var(--accent-text); color: var(--accent-contrast); border-color: var(--accent-text); font-weight: 600; }
 .block { display: flex; width: 100%; }
 .stack > * + * { margin-top: 0.75rem; }
 .card {
