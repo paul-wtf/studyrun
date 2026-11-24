@@ -100,9 +100,9 @@
         <p class="muted">Der offene Fach-Run hält seine Fragen aus anderen Runs zurück, bis du ihn beendest.</p>
       {/if}
       {#if openMock}
-        <button type="button" class="block" disabled={busy} onclick={mock}>
-          {openMock.finishing ? 'Auswertung abschließen' : 'Bosskampf fortsetzen'}
-        </button>
+        <a class="btn block" href="/mock/{openMock.id}">
+          {openMock.finishing ? 'Auswertung abschließen' : openMock.expired ? 'Abgelaufen – Auswertung abschließen' : 'Bosskampf fortsetzen'}
+        </a>
       {:else if subject.unlocked}
         <button type="button" class="block" disabled={busy} onclick={mock}>Bosskampf</button>
         <p class="muted">Probeprüfung über {subject.duration_minutes} Minuten, Auswertung erst am Ende, bestanden ab {subject.pass_mark} %.</p>

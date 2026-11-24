@@ -160,6 +160,50 @@ const mocks = [
 ];
 const openMock = { id: 15, started_at: '2026-11-24T08:00:00Z', deadline: '2026-11-24T09:30:00Z', finished_at: null, score: null, passed: null };
 
+const mockSource = (page) => `/api/booklets/1/pdf#page=${page}`;
+const mockItems = [
+  { id: 21, kind: 'mc', prompt: 'Welcher Produktionsfaktor zählt zu den dispositiven Faktoren?', options: ['Werkstoffe', 'Betriebsmittel', 'Planung', 'Ausführende Arbeit'] },
+  { id: 22, kind: 'true_false', statement: 'Das Minimalprinzip strebt ein festes Ergebnis mit möglichst geringem Mitteleinsatz an.' },
+  { id: 24, kind: 'cloze', text: 'Das ___ strebt ein festes Ergebnis mit möglichst geringem Mitteleinsatz an.' },
+  { id: 23, kind: 'free', prompt: 'Erkläre den Unterschied zwischen Effektivität und Effizienz.' },
+  { id: 25, kind: 'mc', prompt: 'Welche Kostenart ändert sich mit der Ausbringungsmenge?', options: ['Fixkosten', 'Variable Kosten', 'Sprungfixe Kosten'] },
+  { id: 26, kind: 'true_false', statement: 'Gemeinkosten lassen sich einem Kostenträger direkt zurechnen.' },
+  { id: 27, kind: 'free', prompt: 'Wozu dient der Betriebsabrechnungsbogen?' },
+  { id: 28, kind: 'cloze', text: 'Kosten, die einem Produkt direkt zugerechnet werden, heißen ___.' }
+];
+const mockAnswers = [{ choice: 1 }, { value: true }, null, { text: 'Effektivität heißt, das richtige Ziel zu erreichen; Effizienz, es mit wenig Aufwand zu erreichen.' }, { choice: 1 }, null, null, null];
+const review = (extra) => ({ score: 0, correct: false, expected: null, explanation: null, feedback: null, missing: [], model_answer: null, grading_unavailable: false, ...extra });
+const mockReviews = [
+  review({ expected: 'Planung', explanation: 'Planung, Organisation und Kontrolle sind dispositive Faktoren; Betriebsmittel sind Elementarfaktoren.' }),
+  review({ score: 100, correct: true, expected: 'Wahr', explanation: 'Beim Minimalprinzip ist das Ergebnis fest und der Einsatz wird minimiert.' }),
+  review({ expected: 'Minimalprinzip', explanation: 'Das Maximalprinzip hält dagegen den Einsatz fest.' }),
+  review({ score: 80, correct: true, feedback: 'Beide Begriffe sind richtig getrennt.', missing: ['ein Beispiel'], model_answer: 'Effektivität fragt, ob ein Ziel erreicht wird. Effizienz fragt, wie günstig das Verhältnis von Ergebnis zu Aufwand ist.' }),
+  review({ score: 100, correct: true, expected: 'Variable Kosten', explanation: 'Variable Kosten steigen und fallen mit der Menge.' }),
+  review({ expected: 'Falsch', explanation: 'Gemeinkosten werden über Zuschläge verteilt, Einzelkosten direkt zugerechnet.' }),
+  review({ score: null, correct: null, grading_unavailable: true, model_answer: 'Er verteilt die Gemeinkosten auf die Kostenstellen und liefert die Zuschlagssätze.' }),
+  review({ score: 100, correct: true, expected: 'Einzelkosten', explanation: 'Einzelkosten lassen sich dem Kostenträger direkt zurechnen.' })
+];
+const mockAnswersDone = [...mockAnswers.slice(0, 6), { text: 'Damit verteilt man die Gemeinkosten auf die Kostenstellen.' }, { text: 'Einzelkosten' }];
+const minutes = (m) => new Date(TODAY.getTime() + m * 60_000).toISOString();
+const mockExam = (extra = {}, finished = false) => ({
+  id: 20, subject_id: 1, subject_name: subjects[0].name, started_at: minutes(-43), deadline: minutes(47),
+  finished_at: finished ? minutes(-2) : null, finished, finishing: false, expired: false,
+  entries: mockItems.map((item, n) => {
+    const answer = (finished ? mockAnswersDone : mockAnswers)[n];
+    return { n, answered: answer !== null, answer, item, source: finished ? mockSource(12 + n) : null, review: finished ? mockReviews[n] : null };
+  }),
+  result: finished
+    ? {
+        score: 61, passed: true, pass_mark: 50, pending_self_rating: 1,
+        chapters: [
+          { chapter_id: 11, title: 'Grundbegriffe der BWL', items: 4, score: 70 },
+          { chapter_id: 16, title: 'Kostenartenrechnung', items: 4, score: 50 }
+        ]
+      }
+    : null,
+  ...extra
+});
+
 function base(method, path) {
   if (method === 'GET' && path === '/api/modules') return json(modules);
   if (method === 'GET' && path === '/api/costs') return json(costs);
@@ -170,7 +214,7 @@ function base(method, path) {
   if (method === 'GET' && path === '/api/subjects') return json(subjects);
   if (method === 'GET' && /^\/api\/subjects\/\d+$/.test(path)) return json(subjects.find((s) => `/api/subjects/${s.id}` === path));
   if (method === 'GET' && /^\/api\/subjects\/\d+\/mocks$/.test(path)) return json(current.openMock ? [openMock, ...mocks] : mocks);
-  if (method === 'GET' && path === `/api/mock/${openMock.id}`) return json({ ...openMock, subject_id: 1, subject_name: subjects[0].name, finished: false, finishing: true, expired: true, entries: [], result: null });
+  if (method === 'GET' && path === `/api/mock/${openMock.id}`) return json({ ...openMock, subject_id: 1, subject_name: subjects[0].name, finished: false, finishing: !current.expiredMock, expired: true, entries: [], result: null });
   if (method === 'GET' && path === '/api/semesters') return json(semesters);
   if (method === 'GET' && path === '/api/plan') return json(plan);
   if (method === 'GET' && path === '/api/progress') return json(progress);
@@ -229,6 +273,14 @@ const SCENARIOS = [
   { name: 'subject', path: '/subjects/1', wait: 'text=Bosskämpfe' },
   { name: 'subject-open', path: '/subjects/1', subjectRun: true, openMock: true, wait: 'text=Auswertung abschließen' },
   { name: 'subject-results', path: '/subjects/7', wait: 'text=Prüfungsversuche' },
+  { name: 'subject-expired', path: '/subjects/1', openMock: true, expiredMock: true, wait: 'text=Abgelaufen' },
+  { name: 'mock-exam', path: '/mock/20', mock: mockExam(), wait: '[role=timer]' },
+  { name: 'mock-free', path: '/mock/20', mock: mockExam(), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Frage 4, beantwortet' }).click(), wait: 'textarea' },
+  { name: 'mock-low-time', path: '/mock/20', mock: mockExam({ deadline: minutes(3.5) }), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Frage 3, offen' }).click(), wait: 'input[type=text]' },
+  { name: 'mock-confirm', path: '/mock/20', mock: mockExam(), ready: '[role=timer]', act: (page) => page.getByRole('button', { name: 'Abgeben', exact: true }).click(), wait: 'text=Jetzt abgeben' },
+  { name: 'mock-finishing', path: '/mock/20', mock: mockExam({ deadline: minutes(-1), expired: true }), finish: 'hang', waitUntil: 'load', wait: 'text=Wird ausgewertet' },
+  { name: 'mock-stalled', path: '/mock/20', mock: mockExam({ finishing: true }), finish: json({ detail: 'Gateway Timeout' }, 504), wait: 'text=Auswertung fortsetzen' },
+  { name: 'mock-result', path: '/mock/20', mock: mockExam({}, true), wait: 'text=Wusste ich nicht' },
   {
     name: 'plan-choose', path: '/plan', ready: 'text=Termine',
     act: (page) => page.getByRole('article', { name: 'Kosten- und Leistungsrechnung' }).getByRole('button', { name: 'Anderen Termin wählen' }).click(),
@@ -246,6 +298,9 @@ function api(method, path) {
     const runs = current.runs ?? [run(mc(0))];
     return json(runs[Math.min(runCalls++, runs.length - 1)]);
   }
+  if (current.mock && path === '/api/mock/20') return json(current.mock);
+  if (current.mock && method === 'POST' && /^\/api\/mock\/20\/answers\/\d+$/.test(path)) return json({ n: Number(path.split('/').pop()), answered: true });
+  if (current.mock && method === 'POST' && path === '/api/mock/20/finish') return current.finish ?? json(mockExam({}, true));
   if (method === 'POST' && /\/entries\/\d+\/answer$/.test(path)) {
     const a = current.answer ?? mcResult(true);
     return 'status' in a ? a : json(a);
@@ -261,7 +316,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname.startsWith('/api/')) {
-    const { status, body } = api(req.method, url.pathname + url.search);
+    const reply = api(req.method, url.pathname + url.search);
+    if (reply === 'hang') return;
+    const { status, body } = reply;
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
     return;
@@ -286,7 +343,7 @@ try {
         await context.clock.setFixedTime(TODAY);
         if (theme) await context.addInitScript((t) => localStorage.setItem('studyrun-theme', t), theme);
         const page = await context.newPage();
-        await page.goto(origin + scenario.path, { waitUntil: 'networkidle' });
+        await page.goto(origin + scenario.path, { waitUntil: scenario.waitUntil ?? 'networkidle' });
         if (scenario.act) {
           await page.locator(scenario.ready ?? 'main button, main a').first().waitFor();
           await scenario.act(page);
@@ -305,5 +362,6 @@ try {
   }
 } finally {
   await browser.close();
+  server.closeAllConnections();
   server.close();
 }

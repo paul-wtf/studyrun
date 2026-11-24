@@ -80,7 +80,9 @@
   nav a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    min-width: 44px;
     min-height: 44px;
     padding: 0 0.35rem;
     color: var(--text-muted);

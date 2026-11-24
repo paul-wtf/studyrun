@@ -17,7 +17,7 @@ const MODULES = [
 ];
 const PLAN = { entries: [planEntry({ sitting: '2027-01-31', register_by: '2027-01-10' })], conflicts: [], order: [1], pace_per_day: 4 };
 const PROGRESS = { week: { days: [], goal: 4, done_count: 0 }, subjects: [{ subject_id: 1, introduced: 0.8, solid: 0.35 }] };
-const MOCK = { id: 12, subject_id: 1, subject_name: 'Rechnungswesen', finishing: false, finished: false };
+const MOCK = { id: 12, subject_id: 1, subject_name: 'Rechnungswesen', finishing: false, finished: false, expired: false };
 
 function routes(extra: Record<string, unknown> = {}, s = subject({ module_ids: [4, 5], unlocked: true, introduced_share: 0.8 })) {
   return {
@@ -77,25 +77,28 @@ describe('subject page', () => {
     expect(screen.queryByRole('button', { name: /Bosskampf/ })).not.toBeInTheDocument();
   });
 
-  it('continues an open mock exam', async () => {
-    const open = { id: 12, started_at: '2026-11-24T19:00:00Z', deadline: '2026-11-24T20:30:00Z', finished_at: null, score: null, passed: null };
-    mockApi(routes({ 'GET /api/subjects/1/mocks': [open], 'GET /api/mock/12': MOCK, 'POST /api/subjects/1/mock': MOCK }));
+  const OPEN = { id: 12, started_at: '2026-11-24T19:00:00Z', deadline: '2026-11-24T20:30:00Z', finished_at: null, score: null, passed: null };
+
+  it('links straight to an open mock exam', async () => {
+    const { calls } = mockApi(routes({ 'GET /api/subjects/1/mocks': [OPEN], 'GET /api/mock/12': MOCK }));
     render(Page);
-    await userEvent.click(await screen.findByRole('button', { name: 'Bosskampf fortsetzen' }));
-    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalledWith('/mock/12'));
+    expect(await screen.findByRole('link', { name: 'Bosskampf fortsetzen' })).toHaveAttribute('href', '/mock/12');
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
   });
 
   it('completes the grading of a submitted mock exam', async () => {
-    const open = { id: 12, started_at: '2026-11-24T19:00:00Z', deadline: '2026-11-24T20:30:00Z', finished_at: null, score: null, passed: null };
     mockApi(
-      routes(
-        { 'GET /api/subjects/1/mocks': [open], 'GET /api/mock/12': { ...MOCK, finishing: true }, 'POST /api/subjects/1/mock': MOCK },
-        subject({ unlocked: false, introduced_share: 0.5 })
-      )
+      routes({ 'GET /api/subjects/1/mocks': [OPEN], 'GET /api/mock/12': { ...MOCK, finishing: true } }, subject({ unlocked: false, introduced_share: 0.5 }))
     );
     render(Page);
-    await userEvent.click(await screen.findByRole('button', { name: 'Auswertung abschließen' }));
-    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalledWith('/mock/12'));
+    expect(await screen.findByRole('link', { name: 'Auswertung abschließen' })).toHaveAttribute('href', '/mock/12');
+  });
+
+  it('calls an open mock exam past its deadline expired', async () => {
+    mockApi(routes({ 'GET /api/subjects/1/mocks': [OPEN], 'GET /api/mock/12': { ...MOCK, expired: true } }));
+    render(Page);
+    expect(await screen.findByRole('link', { name: 'Abgelaufen – Auswertung abschließen' })).toHaveAttribute('href', '/mock/12');
+    expect(screen.queryByText('Bosskampf fortsetzen')).not.toBeInTheDocument();
   });
 
   it('shows the server reason when a mock exam cannot start', async () => {
