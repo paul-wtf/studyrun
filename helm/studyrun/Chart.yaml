@@ -2,7 +2,7 @@ apiVersion: v2
 name: studyrun
 description: Single-user study app that turns course booklets into spaced-repetition runs
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.1.0"
 home: https://github.com/paul-wtf/studyrun
 sources:
