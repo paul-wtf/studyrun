@@ -59,7 +59,7 @@ describe('subject page', () => {
     render(Page);
     expect(await screen.findByRole('link', { name: 'Fach-Run fortsetzen' })).toHaveAttribute('href', '/run?subject=1');
     expect(screen.queryByRole('link', { name: 'Fach üben' })).not.toBeInTheDocument();
-    expect(screen.getByText(/bis du ihn beendest/)).toBeInTheDocument();
+    expect(screen.getByText(/An dem Tag, an dem du ihn begonnen hast/)).toBeInTheDocument();
   });
 
   it('starts a mock exam once unlocked and opens it', async () => {

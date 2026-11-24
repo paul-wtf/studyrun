@@ -38,6 +38,7 @@ export type PlanState = PlanEntry['state'];
 export type Conflict = S['ConflictOut'];
 export type ConflictKind = Conflict['kind'];
 export type CurrentRun = S['CurrentRunOut'];
+export type OpenRun = S['OpenRunOut'];
 export type MockExam = S['MockExamOut'];
 export type MockSummary = S['MockSummaryOut'];
 export type Progress = S['ProgressOut'];

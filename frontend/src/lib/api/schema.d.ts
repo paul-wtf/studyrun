@@ -158,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open Runs */
+        get: operations["open_runs_api_runs_open_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -765,7 +782,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "no_feasible_sitting" | "two_in_month" | "before_not_before" | "no_material" | "missing_semester" | "planned_not_allowed" | "squeezes_other";
+            kind: "no_feasible_sitting" | "two_in_month" | "before_not_before" | "no_material" | "missing_semester" | "planned_not_allowed" | "squeezes_other" | "needs_result";
             /** Message */
             message: string;
         };
@@ -1120,6 +1137,22 @@ export interface components {
             expected: string;
             /** Explanation */
             explanation: string;
+        };
+        /** OpenRunOut */
+        OpenRunOut: {
+            /** Id */
+            id: number;
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Open Items */
+            open_items: number;
         };
         /** Period */
         Period: {
@@ -1652,6 +1685,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_runs_api_runs_open_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenRunOut"][];
                 };
             };
         };

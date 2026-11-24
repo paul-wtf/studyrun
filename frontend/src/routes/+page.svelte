@@ -6,7 +6,7 @@
   import { deadlinesSoon, focusSubject, nextExam, STATE_LABEL } from '#lib/plan.ts';
   import WeekDots from '#lib/components/WeekDots.svelte';
 
-  import type { Costs, CurrentRun, Module, Plan, PlanEntry, Progress } from '#lib/api/models.ts';
+  import type { Costs, CurrentRun, Module, OpenRun, Plan, Progress } from '#lib/api/models.ts';
 
   let costs = $state<Costs | null>(null);
   let ready = $state<boolean | null>(null);
@@ -14,7 +14,7 @@
   let error = $state('');
   let plan = $state<Plan | null>(null);
   let progress = $state<Progress | null>(null);
-  let focus = $state<{ entry: PlanEntry; open: boolean } | null>(null);
+  let openRuns = $state<OpenRun[]>([]);
 
   const day = today();
   const spent = (features: string[]) =>
@@ -24,6 +24,9 @@
   const next = $derived(plan ? nextExam(plan.entries, day) : undefined);
   const deadlines = $derived(plan ? deadlinesSoon(plan.entries, day) : []);
   const results = $derived(plan?.entries.filter((e) => e.state === 'needs_result') ?? []);
+  const focusEntry = $derived(plan ? focusSubject(plan) : undefined);
+  const focus = $derived(openRuns.some((r) => r.subject_id === focusEntry?.subject_id) ? undefined : focusEntry);
+  const questions = (n: number) => (n === 1 ? '1 Frage offen' : `${n} Fragen offen`);
 
   const hasEntries = (run: CurrentRun['run']) => run !== null && run.entries.length > 0;
 
@@ -44,14 +47,12 @@
 
   async function loadPlan() {
     try {
-      const [p, pr] = await Promise.all([api.get<Plan>('/api/plan'), api.get<Progress>('/api/progress')]);
-      plan = p;
-      progress = pr;
-      const entry = focusSubject(p);
-      if (entry) {
-        const current = await api.get<CurrentRun>(`/api/runs/current?subject_id=${entry.subject_id}`);
-        focus = { entry, open: hasEntries(current.run) };
-      }
+      const [p, pr, runs] = await Promise.all([
+        api.get<Plan>('/api/plan'),
+        api.get<Progress>('/api/progress'),
+        api.get<OpenRun[]>('/api/runs/open')
+      ]);
+      [plan, progress, openRuns] = [p, pr, runs];
     } catch (e) {
       if (!(e instanceof SessionExpiredError)) error = 'Daten konnten nicht geladen werden.';
     }
@@ -91,10 +92,22 @@
   {:else if ready !== null || resume || error}
     <a class="btn primary block start" href="/run">{resume ? 'Run fortsetzen' : 'Run starten'}</a>
   {/if}
+  {#if openRuns.length}
+    <section class="card stack open-runs" aria-labelledby="open-runs-title">
+      <h2 id="open-runs-title">Offene Fach-Runs</h2>
+      <ul>
+        {#each openRuns as r (r.id)}
+          <li>
+            <a class="btn block" href="/run?subject={r.subject_id}">Fach-Run fortsetzen: {r.subject_name}</a>
+            <span class="muted">{questions(r.open_items)}, begonnen am {deDate(today(new Date(r.created_at)))}</span>
+          </li>
+        {/each}
+      </ul>
+      <p class="muted">Brauchst du einen nicht mehr, schließ ihn im Run mit „Beenden“ ab.</p>
+    </section>
+  {/if}
   {#if focus}
-    <a class="btn block" href="/run?subject={focus.entry.subject_id}">
-      {focus.open ? 'Fach-Run fortsetzen' : 'Fach üben'}: {focus.entry.subject_name}
-    </a>
+    <a class="btn block" href="/run?subject={focus.subject_id}">Fach üben: {focus.subject_name}</a>
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
 
@@ -130,6 +143,9 @@
   .banner { box-shadow: var(--glass-shadow), inset 4px 0 0 var(--accent-text); }
   .banner h2 { color: var(--accent-text); }
   .banner ul { list-style: none; padding: 0; margin: 0 0 0.25rem; display: grid; gap: 0.35rem; }
+  .open-runs ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+  .open-runs li { display: grid; gap: 0.25rem; }
+  .open-runs p { margin: 0; }
   .go { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
   .head h2 { margin: 0; }

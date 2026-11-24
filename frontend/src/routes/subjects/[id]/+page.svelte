@@ -97,7 +97,7 @@
       <ProgressBars introduced={share?.introduced ?? subject.introduced_share} solid={share?.solid ?? 0} />
       <a class="btn primary block" href="/run?subject={id}">{runOpen ? 'Fach-Run fortsetzen' : 'Fach üben'}</a>
       {#if runOpen}
-        <p class="muted">Der offene Fach-Run hält seine Fragen aus anderen Runs zurück, bis du ihn beendest.</p>
+        <p class="muted">An dem Tag, an dem du ihn begonnen hast, hält der offene Fach-Run seine Fragen aus anderen Runs zurück.</p>
       {/if}
       {#if openMock}
         <a class="btn block" href="/mock/{openMock.id}">

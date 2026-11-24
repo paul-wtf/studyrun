@@ -22,6 +22,7 @@ const BASE = {
   'GET /api/costs': COSTS,
   'GET /api/modules': MODULES,
   'GET /api/runs/current': { run: null },
+  'GET /api/runs/open': [],
   'GET /api/plan': EMPTY_PLAN,
   'GET /api/progress': PROGRESS
 };
@@ -125,27 +126,42 @@ describe('home', () => {
   });
 
   it('offers a subject run for the subject in focus', async () => {
-    const { calls } = mockApi({
+    mockApi({
       ...BASE,
       'GET /api/plan': {
         ...EMPTY_PLAN,
         entries: [planEntry({ sitting: '2027-01-31', study_from: '2026-11-24', study_until: '2027-01-02' })],
         order: [1]
-      },
-      'GET /api/runs/current?subject_id=1': { run: null }
+      }
     });
     render(Page);
     expect(await screen.findByRole('link', { name: 'Fach üben: Rechnungswesen' })).toHaveAttribute('href', '/run?subject=1');
-    expect(calls.some((c) => c.path === '/api/runs/current?subject_id=1')).toBe(true);
   });
 
-  it('offers to continue the open subject run of the subject in focus', async () => {
+  it('lists every open subject run, the one in focus included', async () => {
     mockApi({
       ...BASE,
       'GET /api/plan': { ...EMPTY_PLAN, entries: [planEntry({ study_from: '2026-11-24', study_until: '2027-01-02' })], order: [1] },
-      'GET /api/runs/current?subject_id=1': { run: { id: 7, entries: [{ n: 0 }] } }
+      'GET /api/runs/open': [
+        { id: 7, subject_id: 1, subject_name: 'Rechnungswesen', created_at: '2026-11-24T08:00:00Z', open_items: 3 },
+        { id: 5, subject_id: 2, subject_name: 'Statistik', created_at: '2026-11-20T21:30:00Z', open_items: 1 }
+      ]
     });
     render(Page);
-    expect(await screen.findByRole('link', { name: 'Fach-Run fortsetzen: Rechnungswesen' })).toHaveAttribute('href', '/run?subject=1');
+    const runs = await screen.findByRole('region', { name: 'Offene Fach-Runs' });
+    expect(within(runs).getByRole('link', { name: 'Fach-Run fortsetzen: Rechnungswesen' })).toHaveAttribute('href', '/run?subject=1');
+    expect(within(runs).getByRole('link', { name: 'Fach-Run fortsetzen: Statistik' })).toHaveAttribute('href', '/run?subject=2');
+    expect(within(runs).getByText('3 Fragen offen, begonnen am 24.11.2026')).toBeInTheDocument();
+    expect(within(runs).getByText('1 Frage offen, begonnen am 20.11.2026')).toBeInTheDocument();
+    expect(within(runs).getByText(/Beenden/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Fach üben: Rechnungswesen' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Rechnungswesen/ })).toHaveLength(1);
+  });
+
+  it('shows no open subject runs section without one', async () => {
+    mockApi({ ...BASE });
+    render(Page);
+    expect(await screen.findByRole('link', { name: 'Run starten' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Offene Fach-Runs' })).not.toBeInTheDocument();
   });
 });
