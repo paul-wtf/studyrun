@@ -72,19 +72,21 @@
 </script>
 
 <div class="stack">
-  <h2>{entry.item.prompt}</h2>
-  <textarea
-    bind:value={text}
-    disabled={busy || answered}
-    aria-label="Antwort"
-    onkeydown={onKeydown}
-    placeholder="In eigenen Worten …"
-  ></textarea>
-  {#if !answered}
-    <button class="primary block" disabled={busy} onclick={submit}>
-      {busy ? 'Wird bewertet …' : 'Antworten'}
-    </button>
-  {/if}
+  <div class="card stack">
+    <h2>{entry.item.prompt}</h2>
+    <textarea
+      bind:value={text}
+      disabled={busy || answered}
+      aria-label="Antwort"
+      onkeydown={onKeydown}
+      placeholder="In eigenen Worten …"
+    ></textarea>
+    {#if !answered}
+      <button class="primary block" disabled={busy} onclick={submit}>
+        {busy ? 'Wird bewertet …' : 'Antworten'}
+      </button>
+    {/if}
+  </div>
   {#if error}<p class="error">{error}</p>{/if}
   {#if result}
     <Feedback itemId={entry.item.id} source={entry.item.source} {result} onnext={onDone} />

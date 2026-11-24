@@ -42,7 +42,7 @@
   {#each modules as m, i (m.id)}
     <div class="card row">
       <a class="name" href="/modules/{m.id}">{m.name}</a>
-      <span class="muted">{m.booklets.length} {m.booklets.length === 1 ? 'Heft' : 'Hefte'}</span>
+      <span class="chip">{m.booklets.length} {m.booklets.length === 1 ? 'Heft' : 'Hefte'}</span>
       <button type="button" aria-label="{m.name} nach oben" disabled={busy || i === 0} onclick={() => move(m, i - 1)}>↑</button>
       <button type="button" aria-label="{m.name} nach unten" disabled={busy || i === modules.length - 1} onclick={() => move(m, i + 1)}>↓</button>
     </div>
@@ -57,9 +57,13 @@
 </div>
 
 <style>
-  .row { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem; }
-  .name { flex: 1; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-  .row button { min-width: 52px; padding: 0.4rem; }
-  label { display: block; }
-  label input { display: block; margin-top: 0.3rem; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.6rem 0.6rem 0.6rem 1.1rem; }
+  .name { flex: 1 1 12rem; display: flex; align-items: center; min-height: 44px; font-weight: 600; min-width: 0; overflow-wrap: break-word; color: var(--text); text-decoration: none; }
+  .row .chip { margin-left: auto; }
+  @media (max-width: 600px) {
+    .name { flex-basis: 100%; }
+    .row .chip { margin-left: 0; margin-right: auto; }
+  }
+  .name:hover { color: var(--accent-text); }
+  .row button { min-width: 48px; min-height: 48px; padding: 0.4rem; }
 </style>

@@ -50,9 +50,10 @@
 </div>
 
 <style>
-  .total { font-size: 1.6rem; font-weight: 600; margin: 0; }
-  dl { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin: 0; }
+  h2 { font-size: 1rem; color: var(--text-muted); margin: 0; }
+  .total { font-family: var(--font-display); font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0.25rem 0 0; font-variant-numeric: tabular-nums; }
+  dl { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin-bottom: 0; }
   dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-  dt { color: var(--muted); }
-  p { margin: 0; }
+  dt { color: var(--text-muted); }
+  p { margin-bottom: 0; }
 </style>

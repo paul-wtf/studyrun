@@ -87,7 +87,7 @@
     </div>
     <button class="quit" onclick={finish}>Beenden</button>
   </div>
-  {#if note}<p class="muted" role="status">{note}</p>{/if}
+  {#if note}<p class="muted note" role="status">{note}</p>{/if}
   {#key `${run.id}-${current.n}`}
     {#if current.type === 'intro'}
       <IntroCard runId={run.id} entry={current} onDone={() => advance(current.n)} onStale={reload} />
@@ -102,13 +102,14 @@
     {/if}
   {/key}
 {:else if !error}
-  <p class="muted">Lade …</p>
+  <p class="muted note">Lade …</p>
 {/if}
 {#if error}<p class="error">{error}</p>{/if}
 
 <style>
   .top { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
-  .bar { flex: 1; height: 10px; border-radius: 5px; background: var(--border); overflow: hidden; }
-  .fill { height: 100%; background: var(--accent); transition: width 0.2s; }
+  .bar { flex: 1; height: 8px; border-radius: 2px; background: var(--surface0); overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); transition: width var(--dur) var(--ease-out); }
   .quit { min-height: 44px; padding: 0.3rem 0.9rem; }
+  .note { margin-bottom: 1rem; }
 </style>

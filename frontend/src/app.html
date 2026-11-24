@@ -1,11 +1,22 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="mocha">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/png" href="%sveltekit.assets%/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/icon-192.png" />
     <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" crossorigin="use-credentials" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#2f5d62" />
+    <meta name="theme-color" content="#181825" />
+    <script>
+      (function () {
+        var t = 'mocha';
+        try {
+          t = localStorage.getItem('studyrun-theme') === 'latte' ? 'latte' : 'mocha';
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', t);
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'latte' ? '#e6e9ef' : '#181825');
+      })();
+    </script>
     <title>studyrun</title>
     %sveltekit.head%
   </head>

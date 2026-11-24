@@ -59,7 +59,6 @@
 </form>
 
 <style>
-  label { display: block; }
-  input[type='file'] { display: block; margin-top: 0.4rem; max-width: 100%; }
+  input[type='file'] { display: block; margin-top: 0.5rem; }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>

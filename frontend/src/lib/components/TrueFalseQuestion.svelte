@@ -10,12 +10,15 @@
     onStale
   }: { runId: number; entry: TrueFalseEntry; onDone: () => void; onStale?: (error: unknown) => void } = $props();
   let result = $state<ObjectiveResult | null>(null);
+  let chosen = $state<boolean | null>(null);
+  const right = $derived(result && chosen !== null ? (result.correct ? chosen : !chosen) : null);
   let busy = $state(false);
   let error = $state('');
 
   async function answer(value: boolean) {
     busy = true;
     error = '';
+    chosen = value;
     try {
       result = await api.post<ObjectiveResult>(`/api/runs/${runId}/entries/${entry.n}/answer`, {
         answer: { value }
@@ -32,11 +35,21 @@
 </script>
 
 <div class="stack">
-  <p class="muted">Wahr oder falsch?</p>
-  <h2>{entry.item.statement}</h2>
-  <div class="pair">
-    <button disabled={busy} onclick={() => answer(true)}>Wahr</button>
-    <button disabled={busy} onclick={() => answer(false)}>Falsch</button>
+  <div class="card stack">
+    <p class="muted">Wahr oder falsch?</p>
+    <h2>{entry.item.statement}</h2>
+    <div class="pair">
+      {#each [[true, 'Wahr'], [false, 'Falsch']] as const as [value, label] (label)}
+        <button
+          class="option"
+          class:picked={chosen === value && !result}
+          class:correct={right === value}
+          class:wrong={result !== null && chosen === value && !result.correct}
+          disabled={busy}
+          onclick={() => answer(value)}>{label}</button
+        >
+      {/each}
+    </div>
   </div>
   {#if error}<p class="error">{error}</p>{/if}
   {#if result}

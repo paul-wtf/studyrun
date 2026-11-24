@@ -34,11 +34,20 @@
 </script>
 
 <div class="stack">
-  <h2>{entry.item.prompt}</h2>
-  <div class="options">
-    {#each entry.item.options ?? [] as option, i}
-      <button class:picked={chosen === i} disabled={busy} onclick={() => choose(i)}>{option}</button>
-    {/each}
+  <div class="card stack">
+    <h2>{entry.item.prompt}</h2>
+    <div class="options">
+      {#each entry.item.options ?? [] as option, i}
+        <button
+          class="option"
+          class:picked={chosen === i && !result}
+          class:correct={result !== null && option === result.expected}
+          class:wrong={result !== null && chosen === i && !result.correct}
+          disabled={busy}
+          onclick={() => choose(i)}>{option}</button
+        >
+      {/each}
+    </div>
   </div>
   {#if error}<p class="error">{error}</p>{/if}
   {#if result}
@@ -48,6 +57,5 @@
 
 <style>
   .options { display: grid; gap: 0.6rem; }
-  .options button { justify-content: flex-start; text-align: left; }
-  .picked { border-color: var(--accent); border-width: 2px; }
+  .options button { justify-content: flex-start; text-align: left; font-weight: 500; }
 </style>

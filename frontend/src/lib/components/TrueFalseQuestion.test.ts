@@ -19,4 +19,18 @@ describe('TrueFalseQuestion', () => {
     expect(calls[0].body).toEqual({ answer: { value: true } });
     expect(await screen.findByText('Richtig')).toBeInTheDocument();
   });
+
+  it('marks the right value and a wrong pick from the result, not from its text', async () => {
+    mockApi({
+      'POST /api/runs/1/entries/0/answer': { correct: false, expected: 'nein', explanation: '' }
+    });
+    render(TrueFalseQuestion, {
+      props: { runId: 1, entry: trueFalseEntry({ statement: 'Eis ist warm.' }), onDone: vi.fn() }
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Wahr' }));
+    await screen.findByText('Falsch', { selector: 'h2' });
+    expect(screen.getByRole('button', { name: 'Wahr' })).toHaveClass('wrong');
+    expect(screen.getByRole('button', { name: 'Wahr' })).not.toHaveClass('correct');
+    expect(screen.getByRole('button', { name: 'Falsch' })).toHaveClass('correct');
+  });
 });

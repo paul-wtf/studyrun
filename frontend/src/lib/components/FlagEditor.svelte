@@ -124,13 +124,9 @@
 </form>
 
 <style>
-  label { display: block; }
-  label :global(textarea), label :global(input), select { display: block; margin-top: 0.3rem; }
-  select {
-    font: inherit; width: 100%; padding: 0.75rem; border-radius: var(--radius);
-    border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  }
   textarea { min-height: 5rem; }
-  .danger { color: var(--bad); border-color: var(--bad); }
+  /* Error red carries base-coloured text at 4.80:1 (Latte) and 7.08:1 (Mocha). */
+  .danger { background: var(--error); color: var(--base); }
+  .danger:not(:disabled):hover { background: var(--error); }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>

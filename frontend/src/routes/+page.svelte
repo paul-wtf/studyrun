@@ -43,11 +43,15 @@
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
   {#if costs}
-    <p class="muted">Bewertung heute: {euro(grading)} von {euro(costs.cap_today)} $</p>
-    {#if generation > 0}<p class="muted">Erzeugung heute: {euro(generation)} $</p>{/if}
+    <div class="card spend">
+      <p class="muted">Bewertung heute: {euro(grading)} von {euro(costs.cap_today)} $</p>
+      {#if generation > 0}<p class="muted">Erzeugung heute: {euro(generation)} $</p>{/if}
+    </div>
   {/if}
 </div>
 
 <style>
-  .start { min-height: 96px; font-size: 1.4rem; }
+  .start { min-height: 96px; font-size: 1.4rem; border-radius: var(--r-lg); box-shadow: var(--glass-shadow); }
+  .spend { padding: 0.9rem 1.25rem; }
+  .spend p { margin: 0; }
 </style>
