@@ -1,5 +1,9 @@
-// Captures every page against fixture data: node scripts/screenshots.mjs <buildDir> <outDir>
-// Needs Playwright with Chromium on the module path (NODE_PATH); it is not a dependency.
+// Captures every page of a build against fixture data, at desk and phone width, in each theme
+// the build knows. Playwright is not a dependency; point NODE_PATH at a node_modules that has it,
+// and have its Chromium installed (npx playwright install chromium):
+//
+//   pnpm build
+//   NODE_PATH=<dir containing the playwright package> node scripts/screenshots.mjs build /tmp/shots
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';

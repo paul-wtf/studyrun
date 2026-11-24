@@ -45,6 +45,9 @@ Frontend:
 `pnpm dev` serves the app on http://localhost:5173 and proxies `/api` to the backend on
 port 8080, so start the backend first.
 
+`frontend/scripts/screenshots.mjs` screenshots every page of a build against fixture data;
+its header says how to run it.
+
 After an API change, regenerate the client types:
 
     cd backend && uv run python -c "from studyrun.main import app; import json; json.dump(app.openapi(), open('openapi.json','w'))"
