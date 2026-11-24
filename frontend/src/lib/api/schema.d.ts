@@ -450,6 +450,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subjects/{subject_id}/mock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Mock */
+        post: operations["start_mock_api_subjects__subject_id__mock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mock */
+        get: operations["get_mock_api_mock__mock_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/answers/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Mock */
+        post: operations["answer_mock_api_mock__mock_id__answers__n__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish */
+        post: operations["finish_api_mock__mock_id__finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/self-rate/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Self Rate */
+        post: operations["self_rate_api_mock__mock_id__self_rate__n__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}/mocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Mocks */
+        get: operations["list_mocks_api_subjects__subject_id__mocks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -573,6 +675,17 @@ export interface components {
             waiting_reason: string | null;
             /** Active Items */
             active_items: number;
+        };
+        /** ChapterScoreOut */
+        ChapterScoreOut: {
+            /** Chapter Id */
+            chapter_id: number;
+            /** Title */
+            title: string;
+            /** Items */
+            items: number;
+            /** Score */
+            score: number;
         };
         /**
          * ChapterStatus
@@ -711,6 +824,15 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** GivenAnswerOut */
+        GivenAnswerOut: {
+            /** Choice */
+            choice?: number | null;
+            /** Value */
+            value?: boolean | null;
+            /** Text */
+            text?: string | null;
+        };
         /** GradingUnavailableOut */
         GradingUnavailableOut: {
             /**
@@ -799,6 +921,105 @@ export interface components {
             options: string[];
             /** Source */
             source: string;
+        };
+        /** MockAnswerOut */
+        MockAnswerOut: {
+            /** N */
+            n: number;
+            /** Answered */
+            answered: boolean;
+        };
+        /** MockEntryOut */
+        MockEntryOut: {
+            /** N */
+            n: number;
+            /** Answered */
+            answered: boolean;
+            answer: components["schemas"]["GivenAnswerOut"] | null;
+            /** Item */
+            item: components["schemas"]["McViewOut"] | components["schemas"]["TrueFalseViewOut"] | components["schemas"]["ClozeViewOut"] | components["schemas"]["FreeViewOut"];
+            review: components["schemas"]["MockReviewOut"] | null;
+        };
+        /** MockExamOut */
+        MockExamOut: {
+            /** Id */
+            id: number;
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Deadline
+             * Format: date-time
+             */
+            deadline: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Finished */
+            finished: boolean;
+            /** Expired */
+            expired: boolean;
+            /** Entries */
+            entries: components["schemas"]["MockEntryOut"][];
+            result: components["schemas"]["MockResultOut"] | null;
+        };
+        /** MockResultOut */
+        MockResultOut: {
+            /** Score */
+            score: number;
+            /** Passed */
+            passed: boolean;
+            /** Pass Mark */
+            pass_mark: number;
+            /** Pending Self Rating */
+            pending_self_rating: number;
+            /** Chapters */
+            chapters: components["schemas"]["ChapterScoreOut"][];
+        };
+        /** MockReviewOut */
+        MockReviewOut: {
+            /** Score */
+            score: number | null;
+            /** Correct */
+            correct: boolean | null;
+            /** Expected */
+            expected: string | null;
+            /** Explanation */
+            explanation: string | null;
+            /** Feedback */
+            feedback: string | null;
+            /** Missing */
+            missing: string[];
+            /** Model Answer */
+            model_answer: string | null;
+            /** Grading Unavailable */
+            grading_unavailable: boolean;
+        };
+        /** MockSummaryOut */
+        MockSummaryOut: {
+            /** Id */
+            id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Deadline
+             * Format: date-time
+             */
+            deadline: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Score */
+            score: number | null;
+            /** Passed */
+            passed: boolean | null;
         };
         /** ModuleCreate */
         ModuleCreate: {
@@ -975,6 +1196,10 @@ export interface components {
             module_ids: number[];
             /** Attempts */
             attempts: components["schemas"]["AttemptOut"][];
+            /** Introduced Share */
+            introduced_share: number;
+            /** Unlocked */
+            unlocked: boolean;
         };
         /** SubjectPatch */
         SubjectPatch: {
@@ -1923,6 +2148,202 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+        };
+    };
+    start_mock_api_subjects__subject_id__mock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mock_api_mock__mock_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_mock_api_mock__mock_id__answers__n__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockAnswerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_api_mock__mock_id__finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    self_rate_api_mock__mock_id__self_rate__n__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfRateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mocks_api_subjects__subject_id__mocks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockSummaryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -23,6 +23,17 @@ def normalize_cloze(text: str) -> str:
     return out
 
 
+def expected_answer(item: Item) -> str:
+    payload = item.payload
+    if item.kind == ItemKind.mc:
+        return str(payload["options"][payload["answer_index"]])
+    if item.kind == ItemKind.true_false:
+        return "Wahr" if payload["correct"] else "Falsch"
+    if item.kind == ItemKind.cloze:
+        return str(payload["answers"][0])
+    raise ValueError(f"{item.kind.value} items are graded, not checked")
+
+
 def check_objective(item: Item, answer: dict[str, Any]) -> ObjectiveResult:
     payload = item.payload
     explanation = str(payload.get("explanation", ""))
@@ -30,22 +41,20 @@ def check_objective(item: Item, answer: dict[str, Any]) -> ObjectiveResult:
         choice = answer.get("choice")
         if not isinstance(choice, int) or isinstance(choice, bool):
             raise ValueError("choice must be an integer")
-        index = payload["answer_index"]
-        return ObjectiveResult(choice == index, payload["options"][index], explanation)
-    if item.kind == ItemKind.true_false:
+        correct = choice == payload["answer_index"]
+    elif item.kind == ItemKind.true_false:
         value = answer.get("value")
         if not isinstance(value, bool):
             raise ValueError("value must be a boolean")
-        expected = payload["correct"]
-        return ObjectiveResult(value == expected, "Wahr" if expected else "Falsch", explanation)
-    if item.kind == ItemKind.cloze:
+        correct = value == payload["correct"]
+    elif item.kind == ItemKind.cloze:
         text = answer.get("text")
         if not isinstance(text, str):
             raise ValueError("text must be a string")
-        accepted = payload["answers"]
-        correct = normalize_cloze(text) in {normalize_cloze(a) for a in accepted}
-        return ObjectiveResult(correct, accepted[0], explanation)
-    raise ValueError(f"{item.kind.value} items are graded, not checked")
+        correct = normalize_cloze(text) in {normalize_cloze(a) for a in payload["answers"]}
+    else:
+        raise ValueError(f"{item.kind.value} items are graded, not checked")
+    return ObjectiveResult(correct, expected_answer(item), explanation)
 
 
 def public_view(item: Item) -> dict[str, Any]:

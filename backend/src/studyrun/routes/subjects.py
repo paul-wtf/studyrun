@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from studyrun.models.db import AttemptStatus, ExamAttempt, Module, Semester, Subject
 from studyrun.routes.modules import Session
 from studyrun.routes.runs import AppSettings, Now
+from studyrun.study.mock import chapter_shares, is_unlocked
 
 router = APIRouter()
 
@@ -35,6 +36,8 @@ class SubjectOut(BaseModel):
     sittings: list[str]
     module_ids: list[int]
     attempts: list[AttemptOut]
+    introduced_share: float
+    unlocked: bool
 
 
 class SemesterOut(BaseModel):
@@ -105,6 +108,7 @@ async def _subjects_out(session: AsyncSession, subjects: list[Subject]) -> list[
         attempts[attempt.subject_id].append(
             AttemptOut(id=attempt.id, sitting=attempt.sitting, status=attempt.status)
         )
+    shares = await chapter_shares(session, ids)
     return [
         SubjectOut(
             id=s.id,
@@ -117,6 +121,8 @@ async def _subjects_out(session: AsyncSession, subjects: list[Subject]) -> list[
             sittings=list(s.sittings),
             module_ids=modules[s.id],
             attempts=attempts[s.id],
+            introduced_share=shares[s.id][0] / shares[s.id][1] if shares[s.id][1] else 0.0,
+            unlocked=is_unlocked(*shares[s.id]),
         )
         for s in subjects
     ]
