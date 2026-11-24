@@ -27,6 +27,7 @@ ConflictKind = Literal[
     "missing_semester",
     "planned_not_allowed",
     "squeezes_other",
+    "needs_result",
 ]
 Month = tuple[int, int]
 
@@ -155,6 +156,7 @@ class _Planner:
         fixed: list[tuple[date, PlanSubject, EntryState]] = []
         planned: list[tuple[date, PlanSubject]] = []
         open_: list[PlanSubject] = []
+        unreported: list[tuple[date, PlanSubject]] = []
         for s in self.subjects:
             passed = [d for d, st in s.attempts if st == AttemptStatus.passed]
             registered = sorted(d for d, st in s.attempts if st == AttemptStatus.registered)
@@ -164,14 +166,18 @@ class _Planner:
             )
             if passed:
                 fixed.append((max(passed), s, "passed"))
-            elif upcoming:
+                continue
+            past = [d for d in registered if d < self.today]
+            if upcoming:
                 fixed.append((upcoming[0], s, "registered"))
             elif registered:
                 fixed.append((registered[-1], s, "needs_result"))
+                past.remove(registered[-1])
             elif chosen:
                 planned.append((chosen[0], s))
             else:
                 open_.append(s)
+            unreported += [(d, s) for d in past]
 
         for sitting, s, state in sorted(fixed, key=lambda f: (f[0], f[1].name, f[1].id)):
             entry = self.entries[s.id]
@@ -194,6 +200,11 @@ class _Planner:
                 self.schedule(s, sitting)
             else:
                 self.taken.setdefault(_month(sitting), s.name)
+        for sitting, s in unreported:
+            self.taken.setdefault(_month(sitting), s.name)
+            self.conflict(
+                s, "needs_result", f"Für die Prüfung am {_de(sitting)} fehlt das Ergebnis."
+            )
         return sorted(planned, key=lambda p: (p[0], p[1].name, p[1].id)), open_
 
     def planned_problem(self, s: PlanSubject, sitting: date) -> str | None:

@@ -395,6 +395,47 @@ def test_past_registered_without_result_still_occupies_its_month():
     assert result.order == [2]
 
 
+def test_missing_result_is_reported_next_to_a_later_registration():
+    today = date(2026, 11, 2)
+    result, entries = run(
+        [
+            subject(
+                1,
+                attempts=[
+                    (date(2026, 6, 1), REGISTERED),
+                    (date(2026, 11, 1), REGISTERED),
+                    (date(2027, 2, 14), REGISTERED),
+                ],
+            ),
+            subject(2, sittings=[date(2026, 11, 29), date(2027, 5, 16)]),
+        ],
+        today=today,
+    )
+    assert (entries[1].state, entries[1].sitting) == ("registered", date(2027, 2, 14))
+    assert [(c.subject_id, c.kind, c.message_de) for c in result.conflicts] == [
+        (1, "needs_result", "Für die Prüfung am 01.06.2026 fehlt das Ergebnis."),
+        (1, "needs_result", "Für die Prüfung am 01.11.2026 fehlt das Ergebnis."),
+    ]
+    assert entries[2].sitting == date(2027, 5, 16)
+
+
+def test_only_missing_results_the_entry_does_not_show_are_conflicts():
+    result, entries = run(
+        [subject(1, attempts=[(date(2026, 6, 1), REGISTERED), (date(2026, 11, 8), REGISTERED)])]
+    )
+    assert (entries[1].state, entries[1].sitting) == ("needs_result", date(2026, 11, 8))
+    assert kinds(result) == [(1, "needs_result")]
+    assert "01.06.2026" in result.conflicts[0].message_de
+
+
+def test_passed_subject_asks_for_no_missing_result():
+    result, entries = run(
+        [subject(1, attempts=[(date(2026, 6, 1), REGISTERED), (date(2026, 11, 8), PASSED)])]
+    )
+    assert entries[1].state == "passed"
+    assert kinds(result) == []
+
+
 def test_passed_subject_is_done_and_occupies_its_month():
     today = date(2026, 11, 2)
     result, entries = run(
