@@ -552,6 +552,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Progress */
+        get: operations["get_progress_api_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1141,6 +1158,12 @@ export interface components {
             /** Pace Per Day */
             pace_per_day: number;
         };
+        /** ProgressOut */
+        ProgressOut: {
+            week: components["schemas"]["WeekOut"];
+            /** Subjects */
+            subjects: components["schemas"]["SubjectProgressOut"][];
+        };
         /** RunOut */
         RunOut: {
             /** Id */
@@ -1250,6 +1273,15 @@ export interface components {
             /** Pass Mark */
             pass_mark?: number | null;
         };
+        /** SubjectProgressOut */
+        SubjectProgressOut: {
+            /** Subject Id */
+            subject_id: number;
+            /** Introduced */
+            introduced: number;
+            /** Solid */
+            solid: number;
+        };
         /** TrueFalseQuestionOut */
         TrueFalseQuestionOut: {
             /** Id */
@@ -1288,6 +1320,25 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeekDayOut */
+        WeekDayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Done */
+            done: boolean;
+        };
+        /** WeekOut */
+        WeekOut: {
+            /** Days */
+            days: components["schemas"]["WeekDayOut"][];
+            /** Goal */
+            goal: number;
+            /** Done Count */
+            done_count: number;
         };
     };
     responses: never;
@@ -2398,6 +2449,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_progress_api_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressOut"];
                 };
             };
         };

@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     generation_max_in_flight: int = Field(default=3, ge=1)
 
     run_review_cap: int = Field(default=8, ge=0)
+    weekly_goal_days: int = Field(default=4, ge=1, le=7)
     run_new_items: int = Field(default=4, ge=0)
 
     max_chapter_pages: int = Field(default=40, ge=1)

@@ -4,9 +4,8 @@ import random
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
-from fsrs import Card, Scheduler
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,12 @@ from studyrun.models.db import (
 )
 from studyrun.study.answers import check_objective
 from studyrun.study.grading import grade_free
-from studyrun.study.scheduling import rating_for_objective, rating_for_score, record_review
+from studyrun.study.scheduling import (
+    rating_for_objective,
+    rating_for_score,
+    record_review,
+    retrievability,
+)
 
 MINUTES: dict[ItemKind, float] = {
     ItemKind.mc: 1.5,
@@ -90,13 +94,9 @@ async def _candidates(
     if blocked:
         stmt = stmt.where(Item.id.not_in(blocked))
     rows = await session.execute(stmt)
-    scheduler = Scheduler()
     candidates = []
     for item_id, chapter_id, kind, card in rows:
-        recall = (
-            scheduler.get_card_retrievability(Card.from_dict(cast(Any, card)), now) if card else 0.0
-        )
-        candidates.append(_Candidate(item_id, chapter_id, kind, 1.0 - recall))
+        candidates.append(_Candidate(item_id, chapter_id, kind, 1.0 - retrievability(card, now)))
     return candidates
 
 

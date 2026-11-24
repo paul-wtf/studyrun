@@ -9,6 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from studyrun.models.db import ReviewLog, ReviewState
 
 
+def retrievability(card: dict[str, Any] | None, now: datetime) -> float:
+    if not card:
+        return 0.0
+    return Scheduler().get_card_retrievability(Card.from_dict(cast(Any, card)), now)
+
+
 def rating_for_objective(correct: bool) -> Rating:
     return Rating.Good if correct else Rating.Again
 
