@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fsrs import Rating
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.models.db import Chapter, Item, ItemKind, MockExam, Subject
@@ -29,6 +30,7 @@ from studyrun.study.mock import (
     chapter_scores,
     chapter_shares,
     finish_mock,
+    finish_started,
     is_unlocked,
     normalize_answer,
     pending_self_rating,
@@ -89,6 +91,7 @@ class MockExamOut(BaseModel):
     deadline: datetime
     finished_at: datetime | None
     finished: bool
+    finishing: bool
     expired: bool
     entries: list[MockEntryOut]
     result: MockResultOut | None
@@ -179,6 +182,7 @@ async def _mock_out(
         deadline=mock.deadline,
         finished_at=mock.finished_at,
         finished=finished,
+        finishing=finish_started(mock),
         expired=not finished and now >= mock.deadline,
         entries=entries,
         result=result,
@@ -240,25 +244,34 @@ async def _new_mock(
     return mock
 
 
+async def _open_mock(session: AsyncSession, subject_id: int) -> MockExam | None:
+    return (
+        await session.scalars(
+            select(MockExam)
+            .where(MockExam.subject_id == subject_id, MockExam.finished_at.is_(None))
+            .with_for_update()
+        )
+    ).one_or_none()
+
+
 @router.post("/subjects/{subject_id}/mock")
 async def start_mock(
     subject_id: int, session: Session, settings: AppSettings, now: Now, llm: Llm
 ) -> MockExamOut:
     subject = await _get_subject(session, subject_id)
-    mock = (
-        await session.scalars(
-            select(MockExam)
-            .where(MockExam.subject_id == subject_id, MockExam.finished_at.is_(None))
-            .order_by(MockExam.id.desc())
-            .limit(1)
-            .with_for_update()
-        )
-    ).first()
+    mock = await _open_mock(session, subject_id)
+    if mock is not None and finish_started(mock):
+        mock = await finish_mock(session, llm, mock.id, now)
+        return await _mock_out(session, mock, subject, now)
     if mock is not None and now - mock.deadline > mock.deadline - mock.started_at:
         await finish_mock(session, llm, mock.id, now)
         mock = None
     if mock is None:
-        new = await _new_mock(session, settings, subject, now)
+        try:
+            async with session.begin_nested():
+                new = await _new_mock(session, settings, subject, now)
+        except IntegrityError:
+            new = await _open_mock(session, subject_id) or LOCKED
         if not isinstance(new, MockExam):
             raise HTTPException(409, new)
         mock = new
@@ -277,7 +290,7 @@ async def answer_mock(
 ) -> MockAnswerOut:
     mock, _ = await _get_mock(session, mock_id)
     entry = _entry(mock, n)
-    if mock.finished_at is not None or any(e.get("checked") for e in mock.entries):
+    if mock.finished_at is not None or finish_started(mock):
         raise HTTPException(409, "Der Bosskampf ist schon abgegeben.")
     if now >= mock.deadline:
         raise HTTPException(409, "Zeit abgelaufen")

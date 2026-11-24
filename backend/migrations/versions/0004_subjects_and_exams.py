@@ -88,6 +88,13 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_mock_exams_subject_id", "mock_exams", ["subject_id"])
+    op.create_index(
+        "uq_mock_exams_open_subject",
+        "mock_exams",
+        ["subject_id"],
+        unique=True,
+        postgresql_where=sa.text("finished_at IS NULL"),
+    )
     for table in ("modules", "runs"):
         op.add_column(table, sa.Column("subject_id", sa.Integer(), nullable=True))
         op.create_foreign_key(
@@ -106,6 +113,7 @@ def downgrade() -> None:
         op.drop_index(f"ix_{table}_subject_id", table_name=table)
         op.drop_constraint(f"{table}_subject_id_fkey", table, type_="foreignkey")
         op.drop_column(table, "subject_id")
+    op.drop_index("uq_mock_exams_open_subject", table_name="mock_exams")
     op.drop_index("ix_mock_exams_subject_id", table_name="mock_exams")
     op.drop_table("mock_exams")
     op.drop_index("ix_exam_attempts_subject_id", table_name="exam_attempts")

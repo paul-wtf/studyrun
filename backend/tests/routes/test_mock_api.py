@@ -22,6 +22,7 @@ from studyrun.models.db import (
     Module,
     ReviewLog,
 )
+from studyrun.routes import mock as mock_routes
 from studyrun.study.grading import GradeResult
 
 BERLIN = ZoneInfo("Europe/Berlin")
@@ -506,3 +507,69 @@ async def test_mock_skips_items_pending_in_open_runs(api, db_session, clock, llm
     mock = await start(client, subject)
 
     assert {e["item"]["id"] for e in mock["entries"]} == {i.id for i in items.values()} - pending
+
+
+async def test_start_completes_a_half_finished_mock(api, db_session, clock, committing_session):
+    client, app = api
+    subject, _, items = await seed(db_session, free_items=2)
+    mock = await start(client, subject)
+    mid = mock["id"]
+    for i in range(2):
+        await client.post(
+            f"/api/mock/{mid}/answers/{n_of(mock, items[f'free{i}'])}",
+            json={"answer": {"text": f"Antwort {i}"}},
+        )
+    killed = LedgerLLM([GradeResult(score=90, feedback="Gut.", missing=[]), RuntimeError("kill")])
+    app.dependency_overrides[get_llm] = lambda: killed
+    with pytest.raises(RuntimeError):
+        await client.post(f"/api/mock/{mid}/finish")
+
+    current = (await client.get(f"/api/mock/{mid}")).json()
+    assert (current["finished"], current["finishing"]) == (False, True)
+    retry = LedgerLLM([GradeResult(score=50, feedback="", missing=[])])
+    app.dependency_overrides[get_llm] = lambda: retry
+    resumed = await start(client, subject)
+
+    assert resumed["id"] == mid
+    assert (resumed["finished"], resumed["finishing"]) == (True, False)
+    assert retry.calls == 1
+    assert resumed["result"]["score"] == 28
+
+
+async def test_runs_get_the_items_of_an_expired_mock_back(api, db_session, clock, llm):
+    client, _ = api
+    subject, _, _ = await seed(db_session)
+    mock = await start(client, subject)
+    mock_items = {e["item"]["id"] for e in mock["entries"]}
+    clock.now += timedelta(minutes=89)
+    assert (await client.post("/api/runs", json={"subject_id": subject.id})).json()["id"] is None
+
+    clock.now += timedelta(minutes=2)
+    run = (await client.post("/api/runs", json={"subject_id": subject.id})).json()
+
+    assert {e["item"]["id"] for e in run["entries"] if e["type"] == "item"} & mock_items
+
+
+async def test_concurrent_start_returns_the_open_mock(api, db_session, clock, llm, monkeypatch):
+    client, _ = api
+    subject, _, _ = await seed(db_session)
+    first = await start(client, subject)
+    real = mock_routes._open_mock
+    calls = []
+
+    async def raced(session, subject_id):
+        calls.append(subject_id)
+        return None if len(calls) == 1 else await real(session, subject_id)
+
+    async def unseen(session, settings, now):
+        return frozenset()
+
+    # The racing request sees neither the other mock nor its blocked items.
+    monkeypatch.setattr(mock_routes, "_open_mock", raced)
+    monkeypatch.setattr(mock_routes, "open_items", unseen)
+
+    second = await start(client, subject)
+
+    assert second["id"] == first["id"]
+    assert len(calls) == 2
+    assert await db_session.scalar(select(func.count()).select_from(MockExam)) == 1

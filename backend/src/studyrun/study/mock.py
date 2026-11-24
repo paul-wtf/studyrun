@@ -194,6 +194,10 @@ def rescore(mock: MockExam) -> None:
     mock.passed = mock.score >= mock.pass_mark
 
 
+def finish_started(mock: MockExam) -> bool:
+    return mock.finished_at is None and any(e.get("checked") for e in mock.entries)
+
+
 async def _locked(session: AsyncSession, mock_id: int) -> MockExam:
     return (
         await session.scalars(

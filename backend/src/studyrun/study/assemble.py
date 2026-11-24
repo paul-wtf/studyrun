@@ -245,7 +245,9 @@ async def open_items(session: AsyncSession, settings: Settings, now: datetime) -
             or_(Run.subject_id.is_not(None), Run.local_date == local_today(settings, now)),
         )
     )
-    mocks = await session.scalars(select(MockExam.entries).where(MockExam.finished_at.is_(None)))
+    mocks = await session.scalars(
+        select(MockExam.entries).where(MockExam.finished_at.is_(None), MockExam.deadline > now)
+    )
     return frozenset(
         entry["item_id"]
         for run in runs

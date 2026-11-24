@@ -93,3 +93,16 @@ async def test_subject_name_unique(db_session):
                     name="Statistik", duration_minutes=60, earliest_semester="3a"
                 )
             )
+
+
+async def test_one_open_mock_exam_per_subject(db_session):
+    subject = _subject()
+    db_session.add(subject)
+    await db_session.flush()
+    deadline = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    values = {"subject_id": subject.id, "deadline": deadline, "entries": [], "pass_mark": 50}
+    await db_session.execute(insert(MockExam).values(**values, finished_at=deadline))
+    await db_session.execute(insert(MockExam).values(**values))
+    with pytest.raises(IntegrityError):
+        async with db_session.begin_nested():
+            await db_session.execute(insert(MockExam).values(**values))

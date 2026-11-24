@@ -1002,6 +1002,8 @@ export interface components {
             finished_at: string | null;
             /** Finished */
             finished: boolean;
+            /** Finishing */
+            finishing: boolean;
             /** Expired */
             expired: boolean;
             /** Entries */

@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -126,6 +127,14 @@ class ExamAttempt(Base):
 
 class MockExam(Base):
     __tablename__ = "mock_exams"
+    __table_args__ = (
+        Index(
+            "uq_mock_exams_open_subject",
+            "subject_id",
+            unique=True,
+            postgresql_where=text("finished_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     subject_id: Mapped[int] = mapped_column(
