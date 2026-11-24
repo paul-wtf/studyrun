@@ -19,6 +19,7 @@ from studyrun.models.db import (
     ItemKind,
     ItemStatus,
     ReviewState,
+    Semester,
 )
 from studyrun.study.assemble import build_run
 from studyrun.study.scheduling import record_review
@@ -438,3 +439,72 @@ async def test_subject_run_gate_counts_only_that_subject(db_session):
     my_due = [await make_item(db_session, my_chapter, ItemKind.mc, due=LONG_AGO) for _ in range(9)]
     run = await build_run(db_session, Settings(), NOW, subject_id=subject.id)
     assert set(item_ids(run)) == {i.id for i in my_due[:8]}
+
+
+async def module_with_item(db_session, position, kind=ItemKind.mc):
+    module = await make_module(db_session, position)
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    return module, await make_item(db_session, chapter, kind)
+
+
+async def test_subjects_outside_the_plan_order_feed_the_daily_run(db_session):
+    planned, planned_item = await module_with_item(db_session, 3)
+    unplannable, unplannable_item = await module_with_item(db_session, 2)
+    later, later_item = await module_with_item(db_session, 1)
+    _, loose_item = await module_with_item(db_session, 0)
+    await make_subject(db_session, "Geplant", sitting=date(2027, 2, 10), modules=(planned,))
+    no_semester = await make_subject(db_session, "Zeta", modules=(unplannable,))
+    no_semester.recommended_semester = 5
+    await make_subject(db_session, "Alpha", modules=(later,))
+
+    sequence = []
+    for _ in range(4):
+        ids = item_ids(await build_run(db_session, Settings(), NOW))
+        sequence.append(ids)
+        await learn(db_session, ids)
+    assert sequence == [[planned_item.id], [unplannable_item.id], [later_item.id], [loose_item.id]]
+
+
+async def test_passed_and_unresolved_subjects_are_no_focus(db_session):
+    passed, _ = await module_with_item(db_session, 0)
+    unresolved, _ = await module_with_item(db_session, 1)
+    await make_subject(
+        db_session,
+        "Bestanden",
+        sitting=date(2026, 10, 1),
+        status=AttemptStatus.passed,
+        modules=(passed,),
+    )
+    await make_subject(db_session, "Offen", sitting=date(2026, 11, 1), modules=(unresolved,))
+
+    assert await build_run(db_session, Settings(), NOW) == []
+
+
+async def test_free_item_fallback_skips_passed_subjects(db_session):
+    passed, _ = await module_with_item(db_session, 0, ItemKind.free)
+    _, loose_item = await module_with_item(db_session, 1)
+    await make_subject(
+        db_session,
+        "Bestanden",
+        sitting=date(2026, 10, 1),
+        status=AttemptStatus.passed,
+        modules=(passed,),
+    )
+
+    assert item_ids(await build_run(db_session, Settings(), NOW)) == [loose_item.id]
+
+
+async def test_planned_sitting_inside_the_window_pulls_forward(db_session):
+    db_session.add(Semester(label="3a", starts_on=date(2026, 4, 1)))
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=LONG_AGO)
+    item = await make_item(db_session, chapter, ItemKind.mc, due=NOW + timedelta(days=1))
+    await make_subject(
+        db_session,
+        "Fach",
+        sitting=TODAY + timedelta(days=21),
+        status=AttemptStatus.planned,
+        modules=(module,),
+    )
+
+    assert item_ids(await build_run(db_session, Settings(), NOW)) == [item.id]

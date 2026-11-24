@@ -21,6 +21,7 @@ from studyrun.models.db import (
     ItemStatus,
     Module,
     ReviewState,
+    Run,
     Subject,
 )
 from studyrun.planning import current_plan, local_today
@@ -44,14 +45,29 @@ def _select_picks() -> Any:
     return select(Item.id, Item.chapter_id, Item.kind).join(Chapter, Chapter.id == Item.chapter_id)
 
 
-def _in_subject(stmt: Any, subject_id: int | None) -> Any:
-    if subject_id is None:
+Groups = Sequence[int | None]
+
+
+def _subject_filter(groups: Groups) -> Any:
+    subject_ids = [g for g in groups if g is not None]
+    return or_(
+        Module.subject_id.in_(subject_ids),
+        *([Module.subject_id.is_(None)] if None in groups else []),
+    )
+
+
+def _in_groups(stmt: Any, groups: Groups | None) -> Any:
+    if groups is None:
         return stmt
     return (
         stmt.join(Booklet, Booklet.id == Chapter.booklet_id)
         .join(Module, Module.id == Booklet.module_id)
-        .where(Module.subject_id == subject_id)
+        .where(_subject_filter(groups))
     )
+
+
+def _not_blocked(stmt: Any, blocked: frozenset[int]) -> Any:
+    return stmt.where(Item.id.not_in(blocked)) if blocked else stmt
 
 
 def _picks(rows: Any) -> list[_Pick]:
@@ -72,11 +88,15 @@ def _rotate_kinds(picks: list[_Pick]) -> list[_Pick]:
 
 
 async def _due_items(
-    session: AsyncSession, cutoff: datetime, limit: int | None, subject_id: int | None = None
+    session: AsyncSession,
+    cutoff: datetime,
+    limit: int | None,
+    scope: Groups | None,
+    blocked: frozenset[int] = frozenset(),
 ) -> list[_Pick]:
     learning = ReviewState.card["state"].astext.cast(Integer).in_(_LEARNING)
     stmt = (
-        _in_subject(_select_picks(), subject_id)
+        _not_blocked(_in_groups(_select_picks(), scope), blocked)
         .join(ReviewState, ReviewState.item_id == Item.id)
         .where(*_ACTIVE_READY, ReviewState.due < cutoff)
         .order_by(case((learning, 0), else_=1), ReviewState.due, Item.id)
@@ -86,11 +106,11 @@ async def _due_items(
     return _picks((await session.execute(stmt)).all())
 
 
-async def _due_count(session: AsyncSession, cutoff: datetime, subject_id: int | None) -> int:
+async def _due_count(session: AsyncSession, cutoff: datetime, scope: Groups | None) -> int:
     stmt = (
-        _in_subject(
+        _in_groups(
             select(func.count()).select_from(Item).join(Chapter, Chapter.id == Item.chapter_id),
-            subject_id,
+            scope,
         )
         .join(ReviewState, ReviewState.item_id == Item.id)
         .where(*_ACTIVE_READY, ReviewState.due < cutoff)
@@ -103,6 +123,7 @@ async def _upcoming_items(
     cutoff: datetime,
     windows: Sequence[tuple[int, datetime | None]],
     limit: int,
+    blocked: frozenset[int],
 ) -> list[_Pick]:
     in_window = [
         Module.subject_id == subject_id
@@ -111,7 +132,7 @@ async def _upcoming_items(
         for subject_id, until in windows
     ]
     stmt = (
-        _select_picks()
+        _not_blocked(_select_picks(), blocked)
         .join(Booklet, Booklet.id == Chapter.booklet_id)
         .join(Module, Module.id == Booklet.module_id)
         .join(ReviewState, ReviewState.item_id == Item.id)
@@ -128,10 +149,10 @@ async def _unseen_items(
     module_id: int | None,
     chapter_id: int | None,
     introduced: bool,
-    subject_id: int | None = None,
+    scope: Groups | None = None,
 ) -> list[_Pick]:
     stmt = (
-        _in_subject(_select_picks(), subject_id)
+        _in_groups(_select_picks(), scope)
         .outerjoin(ReviewState, ReviewState.item_id == Item.id)
         .where(*_ACTIVE_READY, ReviewState.item_id.is_(None))
         .order_by(Chapter.index, Chapter.id, Item.id)
@@ -147,16 +168,10 @@ async def _unseen_items(
     return _rotate_kinds(_picks((await session.execute(stmt)).all()))
 
 
-async def _modules(session: AsyncSession, subject_id: int | None) -> Sequence[Module]:
+async def _modules(session: AsyncSession, group: int | None) -> Sequence[Module]:
     return (
         await session.scalars(
-            select(Module)
-            .where(
-                Module.subject_id.is_(None)
-                if subject_id is None
-                else Module.subject_id == subject_id
-            )
-            .order_by(Module.position, Module.id)
+            select(Module).where(_subject_filter([group])).order_by(Module.position, Module.id)
         )
     ).all()
 
@@ -184,12 +199,9 @@ async def _module_focus(
     return None
 
 
-async def _focus(
-    session: AsyncSession, subject_ids: list[int], *, unassigned: bool
-) -> tuple[int, Chapter | None] | None:
-    groups: list[int | None] = [*subject_ids, None] if unassigned else list(subject_ids)
-    for subject_id in groups:
-        focus = await _module_focus(session, await _modules(session, subject_id))
+async def _focus(session: AsyncSession, groups: Groups) -> tuple[int, Chapter | None] | None:
+    for group in groups:
+        focus = await _module_focus(session, await _modules(session, group))
         if focus is not None:
             return focus
     return None
@@ -201,19 +213,40 @@ def _day_end(day: date, tz: str) -> datetime:
 
 async def _daily_plan(
     session: AsyncSession, settings: Settings, now: datetime
-) -> tuple[list[int], list[tuple[int, datetime | None]]]:
+) -> tuple[list[int | None], list[tuple[int, datetime | None]]]:
     if not await session.scalar(select(select(Subject.id).exists())):
-        return [], []
-    current = (await current_plan(session, settings, now)).plan
+        return [None], []
+    current = await current_plan(session, settings, now)
     today = local_today(settings, now)
+    states = {entry.subject_id: entry.state for entry in current.plan.entries}
+    rest = sorted(
+        (
+            s
+            for s in current.subjects
+            if s.id not in current.plan.order and states[s.id] not in ("passed", "needs_result")
+        ),
+        key=lambda s: (s.recommended_semester is None, s.recommended_semester or 0, s.name, s.id),
+    )
     windows: list[tuple[int, datetime | None]] = [
         (entry.subject_id, _day_end(entry.sitting, settings.timezone))
-        for entry in current.entries
+        for entry in current.plan.entries
         if entry.state in ("planned", "registered")
         and entry.sitting is not None
         and today <= entry.sitting <= today + timedelta(days=REGISTRATION_DAYS)
     ]
-    return current.order, windows
+    return [*current.plan.order, *(s.id for s in rest), None], windows
+
+
+async def _open_items(session: AsyncSession, settings: Settings, now: datetime) -> frozenset[int]:
+    runs = await session.scalars(
+        select(Run).where(Run.local_date == local_today(settings, now), Run.finished_at.is_(None))
+    )
+    return frozenset(
+        entry["item_id"]
+        for run in runs
+        for entry in run.entries
+        if entry["type"] == "item" and not entry.get("done")
+    )
 
 
 def _interleave(picks: list[_Pick]) -> list[_Pick]:
@@ -238,22 +271,26 @@ async def build_run(
     session: AsyncSession, settings: Settings, now: datetime, *, subject_id: int | None = None
 ) -> list[RunEntry]:
     _, cutoff = local_day_bounds(now, settings.timezone)
-    picks = await _due_items(session, cutoff, settings.run_review_cap, subject_id)
-    intro_chapter_id: int | None = None
-    intake = await _due_count(session, cutoff, subject_id) <= settings.run_review_cap
-
+    groups: Groups
     if subject_id is None:
-        order, windows = await _daily_plan(session, settings, now)
+        groups, windows = await _daily_plan(session, settings, now)
+        scope: Groups | None = None
     else:
-        order, windows = [subject_id], [(subject_id, None)]
+        groups, windows = [subject_id], [(subject_id, None)]
+        scope = groups
+    blocked = await _open_items(session, settings, now)
+    picks = await _due_items(session, cutoff, settings.run_review_cap, scope, blocked)
+    intro_chapter_id: int | None = None
+    intake = await _due_count(session, cutoff, scope) <= settings.run_review_cap
+
     room = settings.run_review_cap - len(picks)
     if windows and room > 0:
-        picks += await _upcoming_items(session, cutoff, windows, room)
+        picks += await _upcoming_items(session, cutoff, windows, room, blocked)
 
-    focus = await _focus(session, order, unassigned=subject_id is None) if intake else None
+    focus = await _focus(session, groups) if intake else None
     if focus is not None:
         module_id, next_chapter = focus
-        taken = {p.item_id for p in picks}
+        taken = blocked | {p.item_id for p in picks}
         new = [
             p
             for p in await _unseen_items(
@@ -263,22 +300,26 @@ async def build_run(
         ][: settings.run_new_items]
         if len(new) < settings.run_new_items and next_chapter is not None:
             intro_chapter_id = next_chapter.id
-            fresh = await _unseen_items(
-                session, module_id=None, chapter_id=next_chapter.id, introduced=False
-            )
+            fresh = [
+                p
+                for p in await _unseen_items(
+                    session, module_id=None, chapter_id=next_chapter.id, introduced=False
+                )
+                if p.item_id not in taken
+            ]
             new += fresh[: settings.run_new_items - len(new)]
         picks += new
 
     if not any(p.kind == ItemKind.free for p in picks):
-        taken = {p.item_id for p in picks}
+        taken = blocked | {p.item_id for p in picks}
         free = [
             p
-            for p in await _due_items(session, cutoff, None, subject_id)
+            for p in await _due_items(session, cutoff, None, scope)
             if p.kind == ItemKind.free and p.item_id not in taken
         ]
         if not free and intake:
             unseen = await _unseen_items(
-                session, module_id=None, chapter_id=None, introduced=True, subject_id=subject_id
+                session, module_id=None, chapter_id=None, introduced=True, scope=groups
             )
             if intro_chapter_id is not None:
                 unseen += await _unseen_items(

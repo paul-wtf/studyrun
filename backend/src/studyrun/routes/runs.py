@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from fsrs import Rating
 from pydantic import BaseModel, Field, TypeAdapter
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.ai.budget import BudgetExceeded
@@ -255,16 +255,14 @@ async def _unfinished_run(
     session: AsyncSession, settings: Settings, now: datetime, subject_id: int | None
 ) -> Run | None:
     local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
+    kind = (
+        and_(Run.subject_id.is_(None), Run.local_date == local_date)
+        if subject_id is None
+        else Run.subject_id == subject_id
+    )
     return (
         await session.scalars(
-            select(Run)
-            .where(
-                Run.local_date == local_date,
-                Run.finished_at.is_(None),
-                Run.subject_id.is_(None) if subject_id is None else Run.subject_id == subject_id,
-            )
-            .order_by(Run.id.desc())
-            .limit(1)
+            select(Run).where(kind, Run.finished_at.is_(None)).order_by(Run.id.desc()).limit(1)
         )
     ).first()
 
