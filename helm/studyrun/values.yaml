@@ -65,6 +65,8 @@ secrets:
 # -- Alembic migrations (pre-install/pre-upgrade hook)
 migration:
   enabled: true
+  # On a first install the database may still be starting; 6 exponential retries span about ten minutes.
+  backoffLimit: 6
 
 imagePullSecrets: []
 nameOverride: ""
