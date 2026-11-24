@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from studyrun.ai.llm import LLM, LLMUnavailable
 from studyrun.models.db import Chapter, Item, ItemKind, MockExam, Subject
 from studyrun.routes.modules import Session
 from studyrun.routes.runs import (
@@ -256,6 +257,15 @@ async def _open_mock(session: AsyncSession, subject_id: int) -> MockExam | None:
     ).one_or_none()
 
 
+async def _finish(session: AsyncSession, llm: LLM, mock_id: int, now: datetime) -> MockExam:
+    try:
+        return await finish_mock(session, llm, mock_id, now)
+    except LLMUnavailable as exc:
+        raise HTTPException(
+            503, "Die Bewertung ist gerade nicht erreichbar. Versuch es gleich noch einmal."
+        ) from exc
+
+
 @router.post("/subjects/{subject_id}/mock")
 async def start_mock(
     subject_id: int, session: Session, settings: AppSettings, now: Now, llm: Llm
@@ -263,10 +273,10 @@ async def start_mock(
     subject = await _get_subject(session, subject_id)
     mock = await _open_mock(session, subject_id)
     if mock is not None and finish_started(mock):
-        mock = await finish_mock(session, llm, mock.id, now)
+        mock = await _finish(session, llm, mock.id, now)
         return await _mock_out(session, mock, subject, now)
     if mock is not None and now - mock.deadline > mock.deadline - mock.started_at:
-        await finish_mock(session, llm, mock.id, now)
+        await _finish(session, llm, mock.id, now)
         mock = None
     if mock is None:
         try:
@@ -313,7 +323,7 @@ async def answer_mock(
 async def finish(mock_id: int, session: Session, now: Now, llm: Llm) -> MockExamOut:
     mock, subject = await _get_mock(session, mock_id)
     if mock.finished_at is None:
-        mock = await finish_mock(session, llm, mock.id, now)
+        mock = await _finish(session, llm, mock.id, now)
     return await _mock_out(session, mock, subject, now)
 
 

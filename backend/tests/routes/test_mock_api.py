@@ -293,13 +293,8 @@ async def test_time_runs_out(api, db_session, clock, llm):
     assert await reviews(db_session) == 1
 
 
-@pytest.mark.parametrize(
-    "error",
-    [BudgetExceeded(Feature.grade, Decimal("0.5"), Decimal("0.5")), LLMUnavailable("weg")],
-)
-async def test_cap_reached_mid_grading_leaves_the_rest_to_self_rating(
-    api, db_session, clock, llm, error
-):
+async def test_cap_reached_mid_grading_leaves_the_rest_to_self_rating(api, db_session, clock, llm):
+    error = BudgetExceeded(Feature.grade, Decimal("0.5"), Decimal("0.5"))
     client, _ = api
     subject, _, items = await seed(db_session, free_items=3)
     mock = await start(client, subject)
@@ -469,6 +464,62 @@ async def test_interrupted_finish_keeps_paid_grades(api, db_session, clock, comm
     assert [scores[items[f"free{i}"].id] for i in range(3)] == [90, 50, 50]
     assert await db_session.scalar(select(func.count()).select_from(ApiCall)) == 3
     assert await reviews(db_session) == 3
+
+
+async def test_unavailable_grading_keeps_the_mock_open_for_a_retry(
+    api, db_session, clock, committing_session
+):
+    client, app = api
+    subject, _, items = await seed(db_session, free_items=3)
+    mock = await start(client, subject)
+    mid = mock["id"]
+    for i in range(3):
+        await client.post(
+            f"/api/mock/{mid}/answers/{n_of(mock, items[f'free{i}'])}",
+            json={"answer": {"text": f"Antwort {i}"}},
+        )
+    down = LedgerLLM([GradeResult(score=90, feedback="Gut.", missing=[]), LLMUnavailable("weg")])
+    app.dependency_overrides[get_llm] = lambda: down
+
+    resp = await client.post(f"/api/mock/{mid}/finish")
+
+    assert resp.status_code == 503
+    assert (
+        resp.json()["detail"]
+        == "Die Bewertung ist gerade nicht erreichbar. Versuch es gleich noch einmal."
+    )
+    current = (await client.get(f"/api/mock/{mid}")).json()
+    assert (current["finished"], current["finishing"]) == (False, True)
+    assert await reviews(db_session) == 1
+
+    retry = LedgerLLM([GradeResult(score=50, feedback="", missing=[])] * 2)
+    app.dependency_overrides[get_llm] = lambda: retry
+    out = (await client.post(f"/api/mock/{mid}/finish")).json()
+    assert retry.calls == 2
+    scores = {e["item"]["id"]: e["review"]["score"] for e in out["entries"]}
+    assert [scores[items[f"free{i}"].id] for i in range(3)] == [90, 50, 50]
+    assert out["result"]["pending_self_rating"] == 0
+    assert await reviews(db_session) == 3
+
+
+async def test_start_answers_503_while_grading_is_unavailable(
+    api, db_session, clock, committing_session
+):
+    client, app = api
+    subject, _, items = await seed(db_session, free_items=1)
+    mock = await start(client, subject)
+    mid = mock["id"]
+    await client.post(
+        f"/api/mock/{mid}/answers/{n_of(mock, items['free0'])}", json={"answer": {"text": "a"}}
+    )
+    app.dependency_overrides[get_llm] = lambda: LedgerLLM([LLMUnavailable("weg")])
+    clock.now = berlin(23, 23)
+
+    resp = await client.post(f"/api/subjects/{subject.id}/mock")
+
+    assert resp.status_code == 503
+    current = (await client.get(f"/api/mock/{mid}")).json()
+    assert current["finished"] is False
 
 
 async def test_mock_keeps_its_pass_mark(api, db_session, clock, llm):

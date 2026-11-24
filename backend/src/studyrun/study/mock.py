@@ -227,6 +227,7 @@ async def finish_mock(session: AsyncSession, llm: LLM, mock_id: int, now: dateti
             }
         entries = list(mock.entries)
         graded = False
+        unavailable: LLMUnavailable | None = None
         for n, entry in enumerate(entries):
             if entry.get("checked"):
                 continue
@@ -259,8 +260,11 @@ async def finish_mock(session: AsyncSession, llm: LLM, mock_id: int, now: dateti
                 if grading:
                     try:
                         grade = await grade_free(session, llm, item, answer["text"], now)
-                    except (BudgetExceeded, LLMUnavailable):
+                    except BudgetExceeded:
                         grading = False
+                    except LLMUnavailable as exc:
+                        unavailable = exc
+                        break
                 if grade is None:
                     result |= {"score": None, "correct": None, "grading_unavailable": True}
                 else:
@@ -285,3 +289,5 @@ async def finish_mock(session: AsyncSession, llm: LLM, mock_id: int, now: dateti
             mock.finished_at = now
             rescore(mock)
         await session.commit()
+        if unavailable is not None:
+            raise unavailable
