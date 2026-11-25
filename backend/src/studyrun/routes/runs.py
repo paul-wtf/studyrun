@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from fsrs import Rating
 from pydantic import BaseModel, Field, TypeAdapter
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studyrun.ai.budget import BudgetExceeded
@@ -16,7 +16,16 @@ from studyrun.ai.llm import LLM, LLMUnavailable
 from studyrun.config import Settings
 from studyrun.content.schemas import Concept
 from studyrun.deps import get_llm, get_now, get_settings
-from studyrun.models.db import Chapter, ChapterStatus, Item, ItemKind, ItemStatus, ReviewState, Run
+from studyrun.models.db import (
+    Chapter,
+    ChapterStatus,
+    Item,
+    ItemKind,
+    ItemStatus,
+    ReviewState,
+    Run,
+    Subject,
+)
 from studyrun.routes.modules import Session
 from studyrun.study.answers import check_objective, public_view
 from studyrun.study.assemble import build_run
@@ -30,6 +39,10 @@ AppSettings = Annotated[Settings, Depends(get_settings)]
 Llm = Annotated[LLM, Depends(get_llm)]
 
 
+class StartRunIn(BaseModel):
+    subject_id: int | None = None
+
+
 class AnswerIn(BaseModel):
     answer: dict[str, Any]
 
@@ -38,32 +51,51 @@ class SelfRateIn(BaseModel):
     rating: Literal["again", "good"]
 
 
-class McViewOut(BaseModel):
+class McQuestionOut(BaseModel):
     id: int
     kind: Literal["mc"]
     prompt: str
     options: list[str]
-    source: str
 
 
-class TrueFalseViewOut(BaseModel):
+class TrueFalseQuestionOut(BaseModel):
     id: int
     kind: Literal["true_false"]
     statement: str
-    source: str
 
 
-class ClozeViewOut(BaseModel):
+class ClozeQuestionOut(BaseModel):
     id: int
     kind: Literal["cloze"]
     text: str
-    source: str
 
 
-class FreeViewOut(BaseModel):
+class FreeQuestionOut(BaseModel):
     id: int
     kind: Literal["free"]
     prompt: str
+
+
+QuestionOut = Annotated[
+    McQuestionOut | TrueFalseQuestionOut | ClozeQuestionOut | FreeQuestionOut,
+    Field(discriminator="kind"),
+]
+QUESTION: TypeAdapter[QuestionOut] = TypeAdapter(QuestionOut)
+
+
+class McViewOut(McQuestionOut):
+    source: str
+
+
+class TrueFalseViewOut(TrueFalseQuestionOut):
+    source: str
+
+
+class ClozeViewOut(ClozeQuestionOut):
+    source: str
+
+
+class FreeViewOut(FreeQuestionOut):
     source: str
 
 
@@ -103,11 +135,21 @@ EntryOut = Annotated[IntroEntryOut | ItemEntryOut, Field(discriminator="type")]
 
 class RunOut(BaseModel):
     id: int | None
+    subject_id: int | None
+    subject_name: str | None
     entries: list[EntryOut]
 
 
 class CurrentRunOut(BaseModel):
     run: RunOut | None
+
+
+class OpenRunOut(BaseModel):
+    id: int
+    subject_id: int
+    subject_name: str
+    created_at: datetime
+    open_items: int
 
 
 class DoneOut(BaseModel):
@@ -161,6 +203,15 @@ def _entry(run: Run, n: int) -> dict[str, Any]:
 
 def _store(run: Run, n: int, entry: dict[str, Any]) -> None:
     run.entries = [entry if i == n else e for i, e in enumerate(run.entries)]
+
+
+async def _subject(session: AsyncSession, subject_id: int | None) -> Subject | None:
+    if subject_id is None:
+        return None
+    subject = await session.get(Subject, subject_id)
+    if subject is None:
+        raise HTTPException(404, "Fach nicht gefunden")
+    return subject
 
 
 async def _run_out(session: AsyncSession, run: Run) -> RunOut:
@@ -218,36 +269,78 @@ async def _run_out(session: AsyncSession, run: Run) -> RunOut:
                     item=_ITEM_VIEW.validate_python(view),
                 )
             )
-    return RunOut(id=run.id, entries=entries)
+    subject = await _subject(session, run.subject_id)
+    return RunOut(
+        id=run.id,
+        subject_id=run.subject_id,
+        subject_name=None if subject is None else subject.name,
+        entries=entries,
+    )
 
 
-async def _unfinished_run(session: AsyncSession, settings: Settings, now: datetime) -> Run | None:
+async def _unfinished_run(
+    session: AsyncSession, settings: Settings, now: datetime, subject_id: int | None
+) -> Run | None:
     local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
+    kind = (
+        and_(Run.subject_id.is_(None), Run.local_date == local_date)
+        if subject_id is None
+        else Run.subject_id == subject_id
+    )
     return (
         await session.scalars(
-            select(Run)
-            .where(Run.local_date == local_date, Run.finished_at.is_(None))
-            .order_by(Run.id.desc())
-            .limit(1)
+            select(Run).where(kind, Run.finished_at.is_(None)).order_by(Run.id.desc()).limit(1)
         )
     ).first()
 
 
 @router.get("/runs/current")
-async def current_run(session: Session, settings: AppSettings, now: Now) -> CurrentRunOut:
-    run = await _unfinished_run(session, settings, now)
+async def current_run(
+    session: Session, settings: AppSettings, now: Now, subject_id: int | None = None
+) -> CurrentRunOut:
+    await _subject(session, subject_id)
+    run = await _unfinished_run(session, settings, now, subject_id)
     return CurrentRunOut(run=None if run is None else await _run_out(session, run))
 
 
+@router.get("/runs/open")
+async def open_runs(session: Session) -> list[OpenRunOut]:
+    rows = await session.execute(
+        select(Run, Subject.id, Subject.name)
+        .join(Subject, Subject.id == Run.subject_id)
+        .where(Run.finished_at.is_(None))
+        .order_by(Run.created_at, Run.id)
+    )
+    return [
+        OpenRunOut(
+            id=run.id,
+            subject_id=subject_id,
+            subject_name=name,
+            created_at=run.created_at,
+            open_items=sum(1 for e in run.entries if e["type"] == "item" and not e.get("done")),
+        )
+        for run, subject_id, name in rows.all()
+    ]
+
+
 @router.post("/runs")
-async def start_run(session: Session, settings: AppSettings, now: Now) -> RunOut:
-    run = await _unfinished_run(session, settings, now)
+async def start_run(
+    session: Session, settings: AppSettings, now: Now, body: StartRunIn | None = None
+) -> RunOut:
+    subject_id = None if body is None else body.subject_id
+    subject = await _subject(session, subject_id)
+    run = await _unfinished_run(session, settings, now, subject_id)
     if run is None:
-        entries = await build_run(session, settings, now)
+        entries = await build_run(session, settings, now, subject_id=subject_id)
         if not entries:
-            return RunOut(id=None, entries=[])
+            return RunOut(
+                id=None,
+                subject_id=subject_id,
+                subject_name=None if subject is None else subject.name,
+                entries=[],
+            )
         local_date = now.astimezone(ZoneInfo(settings.timezone)).date()
-        run = Run(local_date=local_date, entries=entries)
+        run = Run(local_date=local_date, subject_id=subject_id, entries=entries, created_at=now)
         session.add(run)
         await session.flush()
     return await _run_out(session, run)

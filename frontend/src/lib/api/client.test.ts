@@ -21,6 +21,12 @@ describe('api client', () => {
     expect(calls).toEqual([{ method: 'POST', path: '/api/x', body: { a: 1 } }]);
   });
 
+  it('accepts an empty 204 answer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })));
+    await expect(api.del('/api/attempts/4')).resolves.toBeUndefined();
+    expect(get(sessionExpired)).toBe(false);
+  });
+
   it('throws SessionExpiredError for an html response', async () => {
     vi.stubGlobal(
       'fetch',

@@ -22,7 +22,7 @@ function expire(): never {
   throw new SessionExpiredError();
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, keepalive = false): Promise<T> {
   const form = body instanceof FormData;
   let res: Response;
   try {
@@ -30,6 +30,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       method,
       credentials: 'include',
       redirect: 'manual',
+      keepalive,
       headers: body === undefined || form ? undefined : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : form ? body : JSON.stringify(body)
     });
@@ -44,13 +45,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const detail = parsed?.detail;
     throw new ApiError(res.status, path, typeof detail === 'string' ? detail : undefined, parsed);
   }
+  if (res.status === 204) return undefined as T;
   if (!isJson) expire();
   return (await res.json()) as T;
 }
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  post: <T>(path: string, body?: unknown, { keepalive = false } = {}) => request<T>('POST', path, body, keepalive),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T>(path: string) => request<T>('DELETE', path)

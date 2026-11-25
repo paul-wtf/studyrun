@@ -68,7 +68,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-vi
   white-space: nowrap;
 }
 
-input[type='text'], textarea, select {
+input[type='text'], input[type='date'], input[type='number'], textarea, select {
   font: inherit;
   width: 100%;
   min-height: 48px;

@@ -26,7 +26,7 @@ export function mockApi(routes: Record<string, Handler>) {
         headers: { 'content-type': 'application/json' }
       });
     }
-    const value = typeof handler === 'function' ? (handler as (b: unknown) => unknown)(body) : handler;
+    const value = await (typeof handler === 'function' ? (handler as (b: unknown) => unknown)(body) : handler);
     if (value instanceof Response) return value;
     return new Response(JSON.stringify(value), {
       status: 200,

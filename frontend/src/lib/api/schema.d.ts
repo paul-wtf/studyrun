@@ -158,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open Runs */
+        get: operations["open_runs_api_runs_open_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -312,6 +329,263 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subjects/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Subjects */
+        post: operations["import_subjects_api_subjects_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subjects */
+        get: operations["list_subjects_api_subjects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Subject */
+        get: operations["get_subject_api_subjects__subject_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Subject */
+        patch: operations["patch_subject_api_subjects__subject_id__patch"];
+        trace?: never;
+    };
+    "/api/semesters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Semesters */
+        get: operations["list_semesters_api_semesters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/semesters/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Semester */
+        put: operations["put_semester_api_semesters__label__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Attempt */
+        post: operations["create_attempt_api_subjects__subject_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Attempt */
+        delete: operations["delete_attempt_api_attempts__attempt_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Attempt */
+        patch: operations["patch_attempt_api_attempts__attempt_id__patch"];
+        trace?: never;
+    };
+    "/api/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["get_plan_api_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}/mock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Mock */
+        post: operations["start_mock_api_subjects__subject_id__mock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mock */
+        get: operations["get_mock_api_mock__mock_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/answers/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Mock */
+        post: operations["answer_mock_api_mock__mock_id__answers__n__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish */
+        post: operations["finish_api_mock__mock_id__finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock/{mock_id}/self-rate/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Self Rate */
+        post: operations["self_rate_api_mock__mock_id__self_rate__n__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subjects/{subject_id}/mocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Mocks */
+        get: operations["list_mocks_api_subjects__subject_id__mocks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Progress */
+        get: operations["get_progress_api_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -323,6 +597,39 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** AttemptCreate */
+        AttemptCreate: {
+            /**
+             * Sitting
+             * Format: date
+             */
+            sitting: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "planned" | "registered";
+        };
+        /** AttemptOut */
+        AttemptOut: {
+            /** Id */
+            id: number;
+            /**
+             * Sitting
+             * Format: date
+             */
+            sitting: string;
+            status: components["schemas"]["AttemptStatus"];
+        };
+        /** AttemptPatch */
+        AttemptPatch: {
+            status: components["schemas"]["AttemptStatus"];
+        };
+        /**
+         * AttemptStatus
+         * @enum {string}
+         */
+        AttemptStatus: "planned" | "registered" | "passed" | "failed";
         /** Body_upload_booklet_api_modules__module_id__booklets_post */
         Body_upload_booklet_api_modules__module_id__booklets_post: {
             /** File */
@@ -403,6 +710,17 @@ export interface components {
             /** Active Items */
             active_items: number;
         };
+        /** ChapterScoreOut */
+        ChapterScoreOut: {
+            /** Chapter Id */
+            chapter_id: number;
+            /** Title */
+            title: string;
+            /** Items */
+            items: number;
+            /** Score */
+            score: number;
+        };
         /**
          * ChapterStatus
          * @enum {string}
@@ -420,6 +738,18 @@ export interface components {
             concepts: components["schemas"]["Concept"][];
             /** Source */
             source: string;
+        };
+        /** ClozeQuestionOut */
+        ClozeQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "cloze";
+            /** Text */
+            text: string;
         };
         /** ClozeViewOut */
         ClozeViewOut: {
@@ -441,6 +771,20 @@ export interface components {
             term: string;
             /** Explanation */
             explanation: string;
+        };
+        /** ConflictOut */
+        ConflictOut: {
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "no_feasible_sitting" | "two_in_month" | "before_not_before" | "no_material" | "missing_semester" | "planned_not_allowed" | "squeezes_other" | "needs_result";
+            /** Message */
+            message: string;
         };
         /** CostsOut */
         CostsOut: {
@@ -501,6 +845,18 @@ export interface components {
              */
             status: "flagged";
         };
+        /** FreeQuestionOut */
+        FreeQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "free";
+            /** Prompt */
+            prompt: string;
+        };
         /** FreeResultOut */
         FreeResultOut: {
             /** Score */
@@ -526,6 +882,15 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** GivenAnswerOut */
+        GivenAnswerOut: {
+            /** Choice */
+            choice?: number | null;
+            /** Value */
+            value?: boolean | null;
+            /** Text */
+            text?: string | null;
+        };
         /** GradingUnavailableOut */
         GradingUnavailableOut: {
             /**
@@ -542,6 +907,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImportOut */
+        ImportOut: {
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
+            /** Kept Sittings */
+            kept_sittings: number;
         };
         /** IntroEntryOut */
         IntroEntryOut: {
@@ -590,6 +964,20 @@ export interface components {
          * @enum {string}
          */
         ItemKind: "mc" | "true_false" | "cloze" | "free";
+        /** McQuestionOut */
+        McQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "mc";
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+        };
         /** McViewOut */
         McViewOut: {
             /** Id */
@@ -606,6 +994,114 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** MockAnswerOut */
+        MockAnswerOut: {
+            /** N */
+            n: number;
+            /** Answered */
+            answered: boolean;
+        };
+        /** MockEntryOut */
+        MockEntryOut: {
+            /** N */
+            n: number;
+            /** Answered */
+            answered: boolean;
+            answer: components["schemas"]["GivenAnswerOut"] | null;
+            /** Item */
+            item: components["schemas"]["McQuestionOut"] | components["schemas"]["TrueFalseQuestionOut"] | components["schemas"]["ClozeQuestionOut"] | components["schemas"]["FreeQuestionOut"];
+            /** Source */
+            source: string | null;
+            review: components["schemas"]["MockReviewOut"] | null;
+        };
+        /** MockExamOut */
+        MockExamOut: {
+            /** Id */
+            id: number;
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Deadline
+             * Format: date-time
+             */
+            deadline: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Finished */
+            finished: boolean;
+            /** Finishing */
+            finishing: boolean;
+            /** Expired */
+            expired: boolean;
+            /**
+             * Now
+             * Format: date-time
+             */
+            now: string;
+            /** Entries */
+            entries: components["schemas"]["MockEntryOut"][];
+            result: components["schemas"]["MockResultOut"] | null;
+        };
+        /** MockResultOut */
+        MockResultOut: {
+            /** Score */
+            score: number;
+            /** Passed */
+            passed: boolean;
+            /** Pass Mark */
+            pass_mark: number;
+            /** Pending Self Rating */
+            pending_self_rating: number;
+            /** Chapters */
+            chapters: components["schemas"]["ChapterScoreOut"][];
+        };
+        /** MockReviewOut */
+        MockReviewOut: {
+            /** Score */
+            score: number | null;
+            /** Correct */
+            correct: boolean | null;
+            /** Expected */
+            expected: string | null;
+            /** Explanation */
+            explanation: string | null;
+            /** Feedback */
+            feedback: string | null;
+            /** Missing */
+            missing: string[];
+            /** Model Answer */
+            model_answer: string | null;
+            /** Grading Unavailable */
+            grading_unavailable: boolean;
+        };
+        /** MockSummaryOut */
+        MockSummaryOut: {
+            /** Id */
+            id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Deadline
+             * Format: date-time
+             */
+            deadline: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Score */
+            score: number | null;
+            /** Passed */
+            passed: boolean | null;
+        };
         /** ModuleCreate */
         ModuleCreate: {
             /** Name */
@@ -619,6 +1115,8 @@ export interface components {
             name: string;
             /** Position */
             position: number;
+            /** Subject Id */
+            subject_id: number | null;
             /** Booklets */
             booklets: components["schemas"]["BookletOut"][];
         };
@@ -628,6 +1126,8 @@ export interface components {
             name?: string | null;
             /** Position */
             position?: number | null;
+            /** Subject Id */
+            subject_id?: number | null;
         };
         /** ObjectiveResultOut */
         ObjectiveResultOut: {
@@ -638,6 +1138,22 @@ export interface components {
             /** Explanation */
             explanation: string;
         };
+        /** OpenRunOut */
+        OpenRunOut: {
+            /** Id */
+            id: number;
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Open Items */
+            open_items: number;
+        };
         /** Period */
         Period: {
             /** Total */
@@ -647,10 +1163,53 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** PlanEntryOut */
+        PlanEntryOut: {
+            /** Subject Id */
+            subject_id: number;
+            /** Subject Name */
+            subject_name: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "planned" | "registered" | "passed" | "needs_result" | "no_material" | "not_plannable" | "sittings_pending";
+            /** Sitting */
+            sitting: string | null;
+            /** Register By */
+            register_by: string | null;
+            /** Feasible */
+            feasible: boolean;
+            /** Study From */
+            study_from: string | null;
+            /** Study Until */
+            study_until: string | null;
+        };
+        /** PlanOut */
+        PlanOut: {
+            /** Entries */
+            entries: components["schemas"]["PlanEntryOut"][];
+            /** Conflicts */
+            conflicts: components["schemas"]["ConflictOut"][];
+            /** Order */
+            order: number[];
+            /** Pace Per Day */
+            pace_per_day: number;
+        };
+        /** ProgressOut */
+        ProgressOut: {
+            week: components["schemas"]["WeekOut"];
+            /** Subjects */
+            subjects: components["schemas"]["SubjectProgressOut"][];
+        };
         /** RunOut */
         RunOut: {
             /** Id */
             id: number | null;
+            /** Subject Id */
+            subject_id: number | null;
+            /** Subject Name */
+            subject_name: string | null;
             /** Entries */
             entries: (components["schemas"]["IntroEntryOut"] | components["schemas"]["ItemEntryOut"])[];
         };
@@ -672,6 +1231,106 @@ export interface components {
              * @enum {string}
              */
             rating: "again" | "good";
+        };
+        /** SemesterOut */
+        SemesterOut: {
+            /** Label */
+            label: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /** SemesterPut */
+        SemesterPut: {
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /** StartRunIn */
+        StartRunIn: {
+            /** Subject Id */
+            subject_id?: number | null;
+        };
+        /** SubjectImport */
+        SubjectImport: {
+            /** Semesters */
+            semesters: {
+                [key: string]: string;
+            };
+            /** Subjects */
+            subjects: components["schemas"]["SubjectImportEntry"][];
+        };
+        /** SubjectImportEntry */
+        SubjectImportEntry: {
+            /** Name */
+            name: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Earliest Semester */
+            earliest_semester: string;
+            /** Recommended Semester */
+            recommended_semester?: number | null;
+            /** Sittings */
+            sittings: string[];
+        };
+        /** SubjectOut */
+        SubjectOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Earliest Semester */
+            earliest_semester: string;
+            /** Recommended Semester */
+            recommended_semester: number | null;
+            /** Not Before */
+            not_before: string | null;
+            /** Pass Mark */
+            pass_mark: number;
+            /** Sittings */
+            sittings: string[];
+            /** Module Ids */
+            module_ids: number[];
+            /** Attempts */
+            attempts: components["schemas"]["AttemptOut"][];
+            /** Introduced Share */
+            introduced_share: number;
+            /** Unlocked */
+            unlocked: boolean;
+        };
+        /** SubjectPatch */
+        SubjectPatch: {
+            /** Not Before */
+            not_before?: string | null;
+            /** Pass Mark */
+            pass_mark?: number | null;
+        };
+        /** SubjectProgressOut */
+        SubjectProgressOut: {
+            /** Subject Id */
+            subject_id: number;
+            /** Introduced */
+            introduced: number;
+            /** Solid */
+            solid: number;
+        };
+        /** TrueFalseQuestionOut */
+        TrueFalseQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "true_false";
+            /** Statement */
+            statement: string;
         };
         /** TrueFalseViewOut */
         TrueFalseViewOut: {
@@ -699,6 +1358,25 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeekDayOut */
+        WeekDayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Done */
+            done: boolean;
+        };
+        /** WeekOut */
+        WeekOut: {
+            /** Days */
+            days: components["schemas"]["WeekDayOut"][];
+            /** Goal */
+            goal: number;
+            /** Done Count */
+            done_count: number;
         };
     };
     responses: never;
@@ -982,7 +1660,9 @@ export interface operations {
     };
     current_run_api_runs_current_get: {
         parameters: {
-            query?: never;
+            query?: {
+                subject_id?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -998,9 +1678,18 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentRunOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    start_run_api_runs_post: {
+    open_runs_api_runs_open_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1015,7 +1704,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["OpenRunOut"][];
+                };
+            };
+        };
+    };
+    start_run_api_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartRunIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1296,6 +2018,515 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CostsOut"];
+                };
+            };
+        };
+    };
+    import_subjects_api_subjects_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subjects_api_subjects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"][];
+                };
+            };
+        };
+    };
+    get_subject_api_subjects__subject_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_subject_api_subjects__subject_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_semesters_api_semesters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemesterOut"][];
+                };
+            };
+        };
+    };
+    put_semester_api_semesters__label__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemesterPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemesterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_attempt_api_subjects__subject_id__attempts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_attempt_api_attempts__attempt_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_attempt_api_attempts__attempt_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_api_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+        };
+    };
+    start_mock_api_subjects__subject_id__mock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mock_api_mock__mock_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_mock_api_mock__mock_id__answers__n__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockAnswerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_api_mock__mock_id__finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    self_rate_api_mock__mock_id__self_rate__n__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mock_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfRateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockExamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mocks_api_subjects__subject_id__mocks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockSummaryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_progress_api_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressOut"];
                 };
             };
         };

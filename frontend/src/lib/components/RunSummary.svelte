@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { RunSummaryData } from '#lib/api/models.ts';
 
-  let { summary }: { summary: RunSummaryData } = $props();
+  let { summary, back = '/' }: { summary: RunSummaryData; back?: string } = $props();
 </script>
 
 <div class="card stack">
@@ -18,5 +18,5 @@
   <p class="muted">
     Morgen {summary.due_tomorrow === 1 ? 'wartet 1 Wiederholung' : `warten ${summary.due_tomorrow} Wiederholungen`}.
   </p>
-  <a class="btn primary block" href="/">Fertig</a>
+  <a class="btn primary block" href={back}>Fertig</a>
 </div>

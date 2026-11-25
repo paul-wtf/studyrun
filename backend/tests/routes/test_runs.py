@@ -1,15 +1,16 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
 from fakes import FakeLLM
 from sqlalchemy import select
-from study.helpers import make_chapter, make_item, make_module
+from study.helpers import make_chapter, make_item, make_module, make_subject
 
 from studyrun.ai.budget import BudgetExceeded
 from studyrun.ai.llm import LLMUnavailable
 from studyrun.deps import get_llm, get_now, get_settings
 from studyrun.models.db import (
+    AttemptStatus,
     Feature,
     FlagReason,
     ItemKind,
@@ -124,7 +125,12 @@ async def test_current_ignores_yesterdays_run(api, db_session, clock):
 
 async def test_empty_run_is_not_persisted(api, db_session, clock):
     client, _ = api
-    assert await start(client) == {"id": None, "entries": []}
+    assert await start(client) == {
+        "id": None,
+        "subject_id": None,
+        "subject_name": None,
+        "entries": [],
+    }
     assert (await db_session.scalars(select(Run))).all() == []
     await seed(db_session)
     run = await start(client)
@@ -396,3 +402,207 @@ async def test_flag_unknown_item_and_reason(api, db_session):
     assert (
         await client.post(f"/api/items/{mc.id}/flag", json={"reason": "bogus"})
     ).status_code == 422
+
+
+async def seed_passed_subject(db_session, name: str, position: int):
+    module = await make_module(db_session, position)
+    chapter = await make_chapter(db_session, module, introduced_at=berlin(20, 9))
+    item = await make_item(db_session, chapter, ItemKind.mc, payload=MC)
+    subject = await make_subject(
+        db_session,
+        name,
+        sitting=date(2026, 10, 1),
+        status=AttemptStatus.passed,
+        modules=(module,),
+    )
+    return subject, item
+
+
+async def start_subject(client, subject_id: int):
+    resp = await client.post("/api/runs", json={"subject_id": subject_id})
+    assert resp.status_code == 200
+    return resp.json()
+
+
+def run_item_ids(run) -> set[int]:
+    return {e["item"]["id"] for e in run["entries"] if e["type"] == "item"}
+
+
+async def current(client, subject_id: int | None = None):
+    params = {} if subject_id is None else {"subject_id": subject_id}
+    resp = await client.get("/api/runs/current", params=params)
+    assert resp.status_code == 200
+    return resp.json()["run"]
+
+
+async def test_subject_runs_resume_per_subject_next_to_the_daily_run(api, db_session, clock):
+    client, _ = api
+    _, daily_item, _ = await seed(db_session)
+    alpha, alpha_item = await seed_passed_subject(db_session, "Alpha", 1)
+    beta, beta_item = await seed_passed_subject(db_session, "Beta", 2)
+
+    daily = await start(client)
+    first = await start_subject(client, alpha.id)
+    second = await start_subject(client, beta.id)
+    assert len({daily["id"], first["id"], second["id"]}) == 3
+    assert (daily["subject_id"], daily["subject_name"]) == (None, None)
+    assert daily_item.id in run_item_ids(daily)
+    assert (first["subject_id"], first["subject_name"]) == (alpha.id, "Alpha")
+    assert run_item_ids(first) == {alpha_item.id}
+    assert run_item_ids(second) == {beta_item.id}
+
+    assert (await start(client))["id"] == daily["id"]
+    assert (await start_subject(client, alpha.id))["id"] == first["id"]
+    assert (await current(client))["id"] == daily["id"]
+    assert (await current(client, alpha.id))["id"] == first["id"]
+    assert (await current(client, beta.id))["id"] == second["id"]
+
+    await client.post(f"/api/runs/{first['id']}/finish")
+    assert await current(client, alpha.id) is None
+    assert (await current(client))["id"] == daily["id"]
+    assert (await start_subject(client, alpha.id))["id"] != first["id"]
+
+
+async def test_subject_run_resumes_after_midnight(api, db_session, clock):
+    client, _ = api
+    subject, item = await seed_passed_subject(db_session, "Fach", 0)
+    clock.now = berlin(23, 23, 50)
+    run = await start_subject(client, subject.id)
+    clock.now = berlin(24, 0, 10)
+    assert (await current(client, subject.id))["id"] == run["id"]
+    assert (await start_subject(client, subject.id))["id"] == run["id"]
+    resp = await client.post(
+        f"/api/runs/{run['id']}/entries/{index_of(run, item.id)}/answer",
+        json={"answer": {"choice": 2}},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["correct"] is True
+
+
+async def test_new_run_skips_items_open_in_another_run(api, db_session, clock):
+    client, _ = api
+    module = await make_module(db_session)
+    chapter = await make_chapter(db_session, module, introduced_at=berlin(20, 9))
+    items = [await make_item(db_session, chapter, ItemKind.mc, payload=MC) for _ in range(6)]
+    subject = await make_subject(db_session, "Fach", sitting=date(2027, 2, 10), modules=(module,))
+    daily = await start(client)
+    in_daily = run_item_ids(daily)
+    assert len(in_daily) == 4
+    answered = min(in_daily)
+    resp = await client.post(
+        f"/api/runs/{daily['id']}/entries/{index_of(daily, answered)}/answer",
+        json={"answer": {"choice": 2}},
+    )
+    assert resp.status_code == 200
+
+    run = await start_subject(client, subject.id)
+    assert not run_item_ids(run) & (in_daily - {answered})
+    assert run_item_ids(run) >= {i.id for i in items} - in_daily
+
+
+async def test_incomplete_calendar_still_introduces_material(api, db_session, clock):
+    client, _ = api
+    body = {
+        "semesters": {"3a": "2026-04-01"},
+        "subjects": [
+            {
+                "name": "Ohne Semester",
+                "duration_minutes": 90,
+                "earliest_semester": "6a",
+                "sittings": ["2027-09-12"],
+            }
+        ],
+    }
+    assert (await client.post("/api/subjects/import", json=body)).status_code == 200
+    chapter, _, _ = await seed(db_session)
+    subject_id = (await client.get("/api/subjects")).json()[0]["id"]
+    module_id = (await client.get("/api/modules")).json()[0]["id"]
+    resp = await client.patch(f"/api/modules/{module_id}", json={"subject_id": subject_id})
+    assert resp.status_code == 200
+
+    run = await start(client)
+    assert run["entries"][0]["type"] == "intro"
+    assert run["entries"][0]["chapter"]["id"] == chapter.id
+
+
+async def test_unknown_subject_is_404(api, db_session, clock):
+    client, _ = api
+    assert (await client.post("/api/runs", json={"subject_id": 999999})).status_code == 404
+    resp = await client.get("/api/runs/current", params={"subject_id": 999999})
+    assert resp.status_code == 404
+
+
+async def seed_open_subject(db_session, name: str = "Fach", position: int = 0):
+    module = await make_module(db_session, position)
+    chapter = await make_chapter(db_session, module, introduced_at=berlin(20, 9))
+    for _ in range(6):
+        await make_item(db_session, chapter, ItemKind.mc, payload=MC)
+    return await make_subject(db_session, name, sitting=date(2027, 2, 10), modules=(module,))
+
+
+async def test_daily_run_skips_items_open_in_todays_subject_run(api, db_session, clock):
+    client, _ = api
+    subject = await seed_open_subject(db_session)
+    clock.now = berlin(23, 10)
+    in_subject_run = run_item_ids(await start_subject(client, subject.id))
+    assert len(in_subject_run) == 4
+
+    clock.now = berlin(23, 23, 50)
+    daily = await start(client)
+    assert run_item_ids(daily)
+    assert not run_item_ids(daily) & in_subject_run
+
+
+async def test_older_subject_run_stops_blocking_but_stays_resumable(api, db_session, clock):
+    client, _ = api
+    subject = await seed_open_subject(db_session)
+    clock.now = berlin(23, 10)
+    run = await start_subject(client, subject.id)
+    in_subject_run = run_item_ids(run)
+
+    clock.now = berlin(24, 10)
+    daily = await start(client)
+    assert run_item_ids(daily) & in_subject_run
+    assert (await current(client, subject.id))["id"] == run["id"]
+
+
+async def test_open_runs_lists_unfinished_subject_runs(api, db_session, clock):
+    client, _ = api
+    alpha = await seed_open_subject(db_session, "Alpha", 1)
+    beta = await seed_open_subject(db_session, "Beta", 2)
+    gamma = await seed_open_subject(db_session, "Gamma", 3)
+    clock.now = berlin(22, 21)
+    first = await start_subject(client, alpha.id)
+    clock.now = berlin(23, 10)
+    await start(client)
+    second = await start_subject(client, beta.id)
+    finished = await start_subject(client, gamma.id)
+    await client.post(f"/api/runs/{finished['id']}/finish")
+    answered = min(run_item_ids(second))
+    resp = await client.post(
+        f"/api/runs/{second['id']}/entries/{index_of(second, answered)}/answer",
+        json={"answer": {"choice": 2}},
+    )
+    assert resp.status_code == 200
+
+    resp = await client.get("/api/runs/open")
+    assert resp.status_code == 200
+    runs = resp.json()
+    assert [datetime.fromisoformat(r.pop("created_at")) for r in runs] == [
+        berlin(22, 21),
+        berlin(23, 10),
+    ]
+    assert runs == [
+        {
+            "id": first["id"],
+            "subject_id": alpha.id,
+            "subject_name": "Alpha",
+            "open_items": len(run_item_ids(first)),
+        },
+        {
+            "id": second["id"],
+            "subject_id": beta.id,
+            "subject_name": "Beta",
+            "open_items": len(run_item_ids(second)) - 1,
+        },
+    ]

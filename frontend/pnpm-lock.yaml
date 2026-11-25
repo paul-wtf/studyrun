@@ -162,6 +162,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  brace-expansion@>=2.0.0 <2.1.7: '>=2.1.7 <3'
+  cookie@<0.7.0: '>=0.7.0'
+  devalue@<5.9.3: '>=5.9.3 <6'
+  esbuild@<0.28.1: '>=0.28.1'
+  js-yaml@<4.3.2: '>=4.3.2 <5'
+  postcss@<8.5.18: '>=8.5.18 <9'
+  source-map-js@<1.2.2: '>=1.2.2 <2'
+
 importers:
 
   .:
@@ -1135,7 +1144,7 @@ packages:
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
       '@vitejs/devtools': ^0.7.1 || ^0.8.0
-      esbuild: ^0.27.0 || ^0.28.0
+      esbuild: '>=0.28.1'
       jiti: '>=1.21.0'
       less: ^4.0.0
       sass: ^1.70.0
